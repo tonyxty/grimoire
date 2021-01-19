@@ -72,12 +72,12 @@ lookup (Γ , _) (suc i) (s≤s i<len) = tail (lookup Γ i i<len)
 Rename : Context → Context → Set
 Rename Γ Δ = ∀ {A : Type} → Δ ∋ A → Γ ∋ A
 
-ext : ∀ {Γ Δ} → Rename Γ Δ → ∀ {A} → Rename (Γ , A) (Δ , A)
+ext : ∀ {Γ Δ A} → Rename Γ Δ → Rename (Γ , A) (Δ , A)
 ext ρ head = head
 ext ρ (tail x) = tail (ρ x)
 
 -- note how this is contravariant
-rename : ∀ {Γ Δ} → Rename Γ Δ → ∀ {A} → Δ ⊢ A → Γ ⊢ A
+rename : ∀ {Γ Δ A} → Rename Γ Δ → Δ ⊢ A → Γ ⊢ A
 rename ρ (` x) = ` ρ x
 rename ρ (ƛ A ⇒ M) = ƛ A ⇒ rename (ext ρ) M
 rename ρ (M₁ ∙ M₂) = rename ρ M₁ ∙ rename ρ M₂
@@ -87,18 +87,18 @@ rename ρ case M [Z⇒ N₁ |S⇒ N₂ ] = case rename ρ M [Z⇒ rename ρ N₁
 rename ρ (μ M) = μ rename (ext ρ) M
 
 Subst : Context → Context → Set
-Subst Γ Δ = ∀ {A : Type} → Δ ∋ A → Γ ⊢ A
+Subst Γ Δ = ∀ (A : Type) → Δ ∋ A → Γ ⊢ A
 
-ext-subst : ∀ {Γ Δ} → Subst Γ Δ → ∀ {A} → Subst (Γ , A) (Δ , A)
-ext-subst σ head = ` head
-ext-subst σ (tail x) = rename tail (σ x)
+ext-subst : ∀ {Γ Δ A} → Subst Γ Δ → Subst (Γ , A) (Δ , A)
+ext-subst σ _ head = ` head
+ext-subst σ _ (tail x) = rename tail (σ _ x)
 
 ext-term : ∀ {Γ A} → Γ ⊢ A → Subst Γ (Γ , A)
-ext-term M head = M
-ext-term M (tail ∋A) = ` ∋A
+ext-term M _ head = M
+ext-term M _ (tail ∋A) = ` ∋A
 
 subst : ∀ {Γ Δ} → Subst Γ Δ → ∀ {A} → Δ ⊢ A → Γ ⊢ A
-subst σ (` x) = σ x
+subst σ (` x) = σ _ x
 subst σ (ƛ A ⇒ M) = ƛ A ⇒ (subst (ext-subst σ) M)
 subst σ (M₁ ∙ M₂) = subst σ M₁ ∙ subst σ M₂
 subst σ `Z = `Z
@@ -188,7 +188,7 @@ progress (μ M) = step β-μ
 data Steps {A} (M : ∅ ⊢ A) : Set where
   more : ∀ {N} → M —↠ N → Steps M
   done : ∀ {V} → M —↠ V → Value V → Steps M
-  
+
 eval : ∀ {A} → ℕ → (M : ∅ ⊢ A) → Steps M
 eval zero M = more (M ∎)
 eval (suc n) M with progress M
