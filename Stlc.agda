@@ -1,3 +1,4 @@
+{-# OPTIONS --without-K #-}
 open import Data.Maybe
 open import Data.Nat
 open import Relation.Nullary

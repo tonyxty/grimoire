@@ -1,8 +1,10 @@
+{-# OPTIONS --without-K #-}
+
 open import Stlc
 open import Categories.Category.Core
-open import Agda.Primitive
+open import Level
 import Relation.Binary.PropositionalEquality as Eq
-open Eq using (_≡_; refl; sym; cong)
+open Eq using (_≡_; refl; sym)
 open Eq.≡-Reasoning
 
 postulate
@@ -20,41 +22,71 @@ idₛ _ ∋A = ` ∋A
 ext-idₛ≡idₛ : ∀ (Γ : Context) (A : Type) → ext-subst {Γ} {Γ} {A} idₛ ≡ idₛ
 ext-idₛ≡idₛ Γ A = subst-≡ (λ{head → refl; (tail _) → refl})
 
+subst-idₛ : ∀ {Γ} {A : Type} (M : Γ ⊢ A) → subst idₛ M ≡ M
+subst-idₛ (` x) = refl
+subst-idₛ {Γ} {A ⇒ B} (ƛ .A ⇒ M) rewrite ext-idₛ≡idₛ Γ A | subst-idₛ M = refl
+subst-idₛ (M₁ ∙ M₂) rewrite subst-idₛ M₁ | subst-idₛ M₂ = refl
+subst-idₛ `Z = refl
+subst-idₛ (`S M) rewrite subst-idₛ M = refl
+subst-idₛ {Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-idₛ M
+                                           | subst-idₛ M₁
+                                           | ext-idₛ≡idₛ Γ `ℕ | subst-idₛ M₂ = refl
+subst-idₛ {Γ} {A} (μ M) rewrite ext-idₛ≡idₛ Γ A | subst-idₛ M = refl
+
 infixr 9 _∘ₛ_
 _∘ₛ_ : ∀ {Γ Δ Θ} → Subst Δ Θ → Subst Γ Δ → Subst Γ Θ
 (σ ∘ₛ ρ) _ ∋A = subst ρ (σ _ ∋A)
 
-idₛ-subst : ∀ {Γ} {A : Type} (M : Γ ⊢ A) → subst idₛ M ≡ M
-idₛ-subst (` x) = refl
-idₛ-subst {Γ} {A ⇒ B} (ƛ .A ⇒ M) rewrite ext-idₛ≡idₛ Γ A | idₛ-subst M = refl
-idₛ-subst (M₁ ∙ M₂) rewrite idₛ-subst M₁ | idₛ-subst M₂ = refl
-idₛ-subst `Z = refl
-idₛ-subst (`S M) rewrite idₛ-subst M = refl
-idₛ-subst {Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite idₛ-subst M
-                                           | idₛ-subst M₁
-                                           | ext-idₛ≡idₛ Γ `ℕ | idₛ-subst M₂ = refl
-idₛ-subst {Γ} {A} (μ M) rewrite ext-idₛ≡idₛ Γ A | idₛ-subst M = refl
+ext-∘ₛ : ∀ {Γ Δ Θ} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (A : Type) →
+  ext-subst {A = A} (σ ∘ₛ ρ) ≡ (ext-subst σ) ∘ₛ (ext-subst ρ)
+ext-∘ₛ ρ σ A = subst-≡ (pt≡ ρ σ A)
+  where
+  helper : ∀ {Γ Δ B} (ρ : Subst Γ Δ) (M : Δ ⊢ B) (A : Type) →
+    rename tail (subst ρ M) ≡ subst (ext-subst {A = A} ρ) (rename tail M)
+  helper ρ (` x) A = refl
+  helper ρ (ƛ C ⇒ M) A = {!!}
+  helper ρ (M₁ ∙ M₂) A rewrite helper ρ M₁ A | helper ρ M₂ A = refl
+  helper ρ `Z A = refl
+  helper ρ (`S M) A rewrite helper ρ M A = refl
+  helper ρ case M [Z⇒ M₁ |S⇒ M₂ ] A rewrite helper ρ M A
+                                          | helper ρ M₁ A
+                                          = {!!}
+  helper {B = B} ρ (μ M) A = {!!}
+
+  pt≡ : ∀ {Γ Δ Θ} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (A : Type) {B} (∋B : Θ , A ∋ B) →
+    ext-subst {A = A} (σ ∘ₛ ρ) _ ∋B ≡ (ext-subst σ ∘ₛ ext-subst ρ) _ ∋B
+  pt≡ ρ σ A head = refl
+  pt≡ ρ σ A (tail ∋B) = helper _ (σ _ ∋B) _
+
+subst-∘ₛ : ∀ {Γ Δ Θ A} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (M : Θ ⊢ A) → subst ρ (subst σ M) ≡ subst (σ ∘ₛ ρ) M
+subst-∘ₛ ρ σ (` x) = refl
+subst-∘ₛ ρ σ (ƛ A ⇒ M) rewrite ext-∘ₛ ρ σ A | subst-∘ₛ (ext-subst ρ) (ext-subst σ) M = refl
+subst-∘ₛ ρ σ (M₁ ∙ M₂) rewrite subst-∘ₛ ρ σ M₁ | subst-∘ₛ ρ σ M₂ = refl
+subst-∘ₛ ρ σ `Z = refl
+subst-∘ₛ ρ σ (`S M) rewrite subst-∘ₛ ρ σ M = refl
+subst-∘ₛ ρ σ case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-∘ₛ ρ σ M
+                                          | subst-∘ₛ ρ σ M₁
+                                          | ext-∘ₛ ρ σ `ℕ | subst-∘ₛ (ext-subst ρ) (ext-subst σ) M₂ = refl
+subst-∘ₛ {A = A} ρ σ (μ M) rewrite ext-∘ₛ ρ σ A | subst-∘ₛ (ext-subst ρ) (ext-subst σ) M = refl
 
 ∘ₛ-identityʳ : ∀ {Γ Δ} {ρ : Subst Γ Δ} → ρ ∘ₛ idₛ ≡ ρ
 ∘ₛ-identityʳ {ρ = ρ} = subst-≡ (pt≡ ρ)
   where
   pt≡ : ∀ {Γ Δ A} (ρ : Subst Γ Δ) (∋A : Δ ∋ A) → (ρ ∘ₛ idₛ) _ ∋A ≡ ρ _ ∋A
-  pt≡ ρ ∋A rewrite idₛ-subst (ρ _ ∋A) = refl
+  pt≡ ρ ∋A rewrite subst-idₛ (ρ _ ∋A) = refl
 
-∘ₛ-assoc : ∀ {Γ Δ Θ Ξ} {ρ : Subst Γ Δ} {σ : Subst Δ Θ} {τ : Subst Θ Ξ} →
-  τ ∘ₛ (σ ∘ₛ ρ) ≡ (τ ∘ₛ σ) ∘ₛ ρ
-∘ₛ-assoc {Γ} {Δ} {Θ} {Ξ} {ρ} {σ} {τ} = {!!}
-∘ₛ-assoc {Γ} {Δ} {Θ} {Ξ} {ρ} {σ} {τ} = {!!}
+∘ₛ-assoc : ∀ {Γ Δ Θ Ξ} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (τ : Subst Θ Ξ) → (τ ∘ₛ σ) ∘ₛ ρ ≡ τ ∘ₛ (σ ∘ₛ ρ)
+∘ₛ-assoc ρ σ τ = subst-≡ (λ ∋A → subst-∘ₛ ρ σ (τ _ ∋A))
 
-ContextCategory : Category lzero lzero lzero
+ContextCategory : Category 0ℓ 0ℓ 0ℓ
 ContextCategory = record
                     { Obj = Context
                     ; _⇒_ = Subst
                     ; _≈_ = _≡_
                     ; id = idₛ
                     ; _∘_ = _∘ₛ_
-                    ; assoc = {!!}
-                    ; sym-assoc = {!!}
+                    ; assoc = λ {_ _ _ _ ρ σ τ} → ∘ₛ-assoc ρ σ τ
+                    ; sym-assoc = λ {_ _ _ _ ρ σ τ} → sym (∘ₛ-assoc ρ σ τ)
                     ; identityˡ = refl
                     ; identityʳ = ∘ₛ-identityʳ
                     ; identity² = refl
