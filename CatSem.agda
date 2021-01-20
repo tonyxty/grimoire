@@ -8,6 +8,9 @@ open Eq.≡-Reasoning
 postulate
   extensionality : ∀ {A : Set} {B : A → Set} {f g : ∀ (x : A) → B x} → (∀ (x : A) → f x ≡ g x) → f ≡ g
 
+subst-≡ : ∀ {Γ Δ} {ρ σ : Subst Γ Δ} → (∀ {A} (∋A : Δ ∋ A) → ρ _ ∋A ≡ σ _ ∋A) → ρ ≡ σ
+subst-≡ pt≡ = extensionality (λ A → extensionality (pt≡ {A}))
+
 idₛ : ∀ {Γ} → Subst Γ Γ
 idₛ _ ∋A = ` ∋A
 
@@ -15,14 +18,7 @@ idₛ _ ∋A = ` ∋A
 -- In the end I had to change the definition of Subst to make the type parameter explicit.
 -- Someone should fix this.  Really.
 ext-idₛ≡idₛ : ∀ (Γ : Context) (A : Type) → ext-subst {Γ} {Γ} {A} idₛ ≡ idₛ
-ext-idₛ≡idₛ Γ A = extensionality helper'
-  where
-  helper : ∀ {Γ A B} (∋B : Γ , A ∋ B) → ext-subst {Γ} {Γ} {A} idₛ _ ∋B ≡ idₛ _ ∋B
-  helper head = refl
-  helper (tail ∋B) = refl
-
-  helper' : ∀ {Γ A} (B : Type) → ext-subst {Γ} {Γ} {A} idₛ B ≡ idₛ {Γ , A} B
-  helper' B = extensionality helper
+ext-idₛ≡idₛ Γ A = subst-≡ (λ{head → refl; (tail _) → refl})
 
 infixr 9 _∘ₛ_
 _∘ₛ_ : ∀ {Γ Δ Θ} → Subst Δ Θ → Subst Γ Δ → Subst Γ Θ
@@ -40,13 +36,10 @@ idₛ-subst {Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite idₛ-subst M
 idₛ-subst {Γ} {A} (μ M) rewrite ext-idₛ≡idₛ Γ A | idₛ-subst M = refl
 
 ∘ₛ-identityʳ : ∀ {Γ Δ} {ρ : Subst Γ Δ} → ρ ∘ₛ idₛ ≡ ρ
-∘ₛ-identityʳ {ρ = ρ} = extensionality (helper' ρ)
+∘ₛ-identityʳ {ρ = ρ} = subst-≡ (pt≡ ρ)
   where
-  helper : ∀ {Γ Δ A} → (ρ : Subst Γ Δ) → (∋A : Δ ∋ A) → (ρ ∘ₛ idₛ) _ ∋A ≡ ρ _ ∋A
-  helper ρ ∋A rewrite idₛ-subst (ρ _ ∋A) = refl
-
-  helper' : ∀ {Γ Δ} → (ρ : Subst Γ Δ) → (A : Type) → (ρ ∘ₛ idₛ) A ≡ ρ A
-  helper' ρ A = extensionality (helper ρ)
+  pt≡ : ∀ {Γ Δ A} (ρ : Subst Γ Δ) (∋A : Δ ∋ A) → (ρ ∘ₛ idₛ) _ ∋A ≡ ρ _ ∋A
+  pt≡ ρ ∋A rewrite idₛ-subst (ρ _ ∋A) = refl
 
 ∘ₛ-assoc : ∀ {Γ Δ Θ Ξ} {ρ : Subst Γ Δ} {σ : Subst Δ Θ} {τ : Subst Θ Ξ} →
   τ ∘ₛ (σ ∘ₛ ρ) ≡ (τ ∘ₛ σ) ∘ₛ ρ
