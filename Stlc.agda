@@ -104,25 +104,30 @@ rename ρ (μ M) = μ rename (ext ρ) M
 Subst : Context → Context → Set
 Subst Γ Δ = ∀ (A : Type) → Δ ∋ A → Γ ⊢ A
 
-ext-subst : ∀ {Γ Δ A} → Subst Γ Δ → Subst (Γ , A) (Δ , A)
-ext-subst σ _ head = ` head
-ext-subst σ _ (tail x) = rename tail (σ _ x)
+infixl 10 _⋆_
+_⋆_ : ∀ {Γ Δ} (σ : Subst Γ Δ) (A : Type) → Subst (Γ , A) (Δ , A)
+(σ ⋆ _) _ head = ` head
+(σ ⋆ _) _ (tail x) = rename tail (σ _ x)
 
-ext-term : ∀ {Γ A} → Γ ⊢ A → Subst Γ (Γ , A)
-ext-term M _ head = M
-ext-term M _ (tail ∋A) = ` ∋A
+-- implicit argument version
+_♯ : ∀ {Γ Δ A} → Subst Γ Δ → Subst (Γ , A) (Δ , A)
+_♯ {A = A} σ = σ ⋆ A
+
+extTerm : ∀ {Γ A} → Γ ⊢ A → Subst Γ (Γ , A)
+extTerm M _ head = M
+extTerm M _ (tail ∋A) = ` ∋A
 
 subst : ∀ {Γ Δ} → Subst Γ Δ → ∀ {A} → Δ ⊢ A → Γ ⊢ A
 subst σ (` x) = σ _ x
-subst σ (ƛ A ⇒ M) = ƛ A ⇒ (subst (ext-subst σ) M)
+subst σ (ƛ A ⇒ M) = ƛ A ⇒ (subst (σ ♯) M)
 subst σ (M₁ ∙ M₂) = subst σ M₁ ∙ subst σ M₂
 subst σ `Z = `Z
 subst σ (`S M) = `S (subst σ M)
-subst σ case M [Z⇒ N₁ |S⇒ N₂ ] = case subst σ M [Z⇒ subst σ N₁ |S⇒ subst (ext-subst σ) N₂ ]
-subst σ (μ M) = μ subst (ext-subst σ) M
+subst σ case M [Z⇒ N₁ |S⇒ N₂ ] = case subst σ M [Z⇒ subst σ N₁ |S⇒ subst (σ ♯) N₂ ]
+subst σ (μ M) = μ subst (σ ♯) M
 
 _[_] : ∀ {Γ A B} → Γ , A ⊢ B → Γ ⊢ A → Γ ⊢ B
-_[_] M N = subst (ext-term N) M
+_[_] M N = subst (extTerm N) M
 
 -- Reduction
 
