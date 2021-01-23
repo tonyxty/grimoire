@@ -40,9 +40,8 @@ data InferenceVarResult {Γ} (x : Var Γ) : Set where
 
 inferVar : ∀ {Γ} (x : Var Γ) → InferenceVarResult x
 inferVar (head {A = A}) = ⟨ A , head , refl ⟩
--- I wish Agda has let binding for irrefutable patterns
-inferVar (tail x) with inferVar x
-...                  | ⟨ A , x' , refl ⟩ = ⟨ A , (tail x') , refl ⟩
+-- Ok, Agda actually does have with-binding for irrefutable patterns
+inferVar (tail x) with ⟨ A , x' , refl ⟩ ← inferVar x = ⟨ A , (tail x') , refl ⟩
 
 erase : ∀ {Γ A} → Γ ⊢ A → Term Γ
 erase (` x) = ` (eraseVar x)
@@ -59,8 +58,7 @@ data InferenceGoodResult {Γ} (M : Term Γ) : Set where
   ⟨_,_,_⟩ : ∀ (A : Type) (M' : Γ ⊢ A) → erase M' ≡ M → InferenceGoodResult M
 
 infer' : ∀ {Γ} (M : Term Γ) → Maybe (InferenceGoodResult M)
-infer' (` x) with inferVar x
-...            | ⟨ A , x' , refl ⟩ = just ⟨ A , ` x' , refl ⟩
+infer' (` x) with ⟨ A , x' , refl ⟩ ← inferVar x = just ⟨ A , ` x' , refl ⟩
 infer' (ƛ A ⇒ M) = do
   ⟨ B , M , refl ⟩ ← infer' M
   just ⟨ A ⇒ B , ƛ A ⇒ M , refl ⟩
