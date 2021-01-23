@@ -29,9 +29,7 @@ lookupVar (Γ , _) (suc i) (s≤s i<len) = tail (lookupVar Γ i i<len)
 #var i {Γ} {i<len} = ` lookupVar Γ i (toWitness i<len)
 
 unify : ∀ (A B : Type) → Maybe (A ≡ B)
-unify A B with Type≟ A B
-...          | yes ≡ = just ≡
-...          | no _ = nothing
+unify A B = decToMaybe (Type≟ A B)
 
 eraseVar : ∀ {Γ A} → Γ ∋ A → Var Γ
 eraseVar head = head
@@ -57,36 +55,36 @@ erase (μ M) = μ erase M
 
 -- Correct-by-type inference
 
-data InferenceResult {Γ} (M : Term Γ) : Set where
-  ⟨_,_,_⟩ : ∀ (A : Type) (M' : Γ ⊢ A) → erase M' ≡ M → InferenceResult M
+data InferenceGoodResult {Γ} (M : Term Γ) : Set where
+  ⟨_,_,_⟩ : ∀ (A : Type) (M' : Γ ⊢ A) → erase M' ≡ M → InferenceGoodResult M
 
-infer : ∀ {Γ} (M : Term Γ) → Maybe (InferenceResult M)
-infer (` x) with inferVar x
+infer' : ∀ {Γ} (M : Term Γ) → Maybe (InferenceGoodResult M)
+infer' (` x) with inferVar x
 ...            | ⟨ A , x' , refl ⟩ = just ⟨ A , ` x' , refl ⟩
-infer (ƛ A ⇒ M) = do
-  ⟨ B , M , refl ⟩ ← infer M
+infer' (ƛ A ⇒ M) = do
+  ⟨ B , M , refl ⟩ ← infer' M
   just ⟨ A ⇒ B , ƛ A ⇒ M , refl ⟩
 -- Ok, Agda actually has incomplete pattern matching in do-blocks, and works better than MonadFail!  Hooray!
-infer (M₁ ∙ M₂) = do
-  ⟨ A ⇒ B , M₁ , refl ⟩ ← infer M₁
+infer' (M₁ ∙ M₂) = do
+  ⟨ A ⇒ B , M₁ , refl ⟩ ← infer' M₁
                         where _ → nothing
-  ⟨ A' , M₂ , refl ⟩ ← infer M₂
+  ⟨ A' , M₂ , refl ⟩ ← infer' M₂
   refl ← unify A A'
   just ⟨ B , M₁ ∙ M₂ , refl ⟩
-infer `Z = just ⟨ `ℕ , `Z , refl ⟩
-infer (`S M) = do
-  ⟨ A , M , refl ⟩ ← infer M
+infer' `Z = just ⟨ `ℕ , `Z , refl ⟩
+infer' (`S M) = do
+  ⟨ A , M , refl ⟩ ← infer' M
   refl ← unify A `ℕ
   just ⟨ `ℕ , `S M , refl ⟩
-infer case M [Z⇒ M₁ |S⇒ M₂ ] = do
-  ⟨ A , M , refl ⟩ ← infer M
+infer' case M [Z⇒ M₁ |S⇒ M₂ ] = do
+  ⟨ A , M , refl ⟩ ← infer' M
   refl ← unify A `ℕ
-  ⟨ B , M₁ , refl ⟩ ← infer M₁
-  ⟨ B' , M₂ , refl ⟩ ← infer M₂
+  ⟨ B , M₁ , refl ⟩ ← infer' M₁
+  ⟨ B' , M₂ , refl ⟩ ← infer' M₂
   refl ← unify B B'
   just ⟨ B , case M [Z⇒ M₁ |S⇒ M₂ ] , refl ⟩
-infer (μ_ {Γ} {A} M) = do
-  ⟨ A' , M , refl ⟩ ← infer M
+infer' (μ_ {Γ} {A} M) = do
+  ⟨ A' , M , refl ⟩ ← infer' M
   refl ← unify A A'
   just ⟨ A , μ M , refl ⟩
 
@@ -95,19 +93,19 @@ infer (μ_ {Γ} {A} M) = do
 `ungood : Term ∅
 `ungood = (`S (`S `Z)) ∙ `Z
 
-_ : infer `ungood ≡ nothing
+_ : infer' `ungood ≡ nothing
 _ = refl
 
 `plusungood : Term ∅
 `plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ #var 0 ∙ #var 1
 
-_ : infer `plusungood ≡ nothing
+_ : infer' `plusungood ≡ nothing
 _ = refl
 
 `doubleplusungood : Term ∅
 `doubleplusungood = μ_ {A = `ℕ} (#var 0 ∙ `Z)
 
-_ : infer `doubleplusungood ≡ nothing
+_ : infer' `doubleplusungood ≡ nothing
 _ = refl
 
 -- Completeness
@@ -121,7 +119,7 @@ unifySelf : ∀ (A : Type) → Type≟ A A ≡ yes refl
 unifySelf `ℕ = refl
 unifySelf (A ⇒ B) rewrite unifySelf A | unifySelf B = refl
 
-completeness : ∀ {Γ A} (M : Γ ⊢ A) → infer (erase M) ≡ just ⟨ A , M , refl ⟩
+completeness : ∀ {Γ A} (M : Γ ⊢ A) → infer' (erase M) ≡ just ⟨ A , M , refl ⟩
 completeness (` x) rewrite completenessVar x = refl
 completeness (ƛ A ⇒ M) rewrite completeness M = refl
 completeness (_∙_ {A = A} M₁ M₂)
@@ -131,3 +129,15 @@ completeness (`S M) rewrite completeness M = refl
 completeness {A = A} case M [Z⇒ M₁ |S⇒ M₂ ]
   rewrite completeness M | completeness M₁ | completeness M₂ | unifySelf A = refl
 completeness {A = A} (μ M) rewrite completeness M | unifySelf A = refl
+
+data InferenceResult {Γ} (M : Term Γ) : Set where
+  good : ∀ {A} (M' : Γ ⊢ A) → erase M' ≡ M → InferenceResult M
+  ungood : (∀ {A} (M' : Γ ⊢ A) → erase M' ≢ M) → InferenceResult M
+
+infer : ∀ {Γ} (M : Term Γ) → InferenceResult M
+infer M with infer' M | inspect infer' M
+...        | just ⟨ A , M' , refl ⟩ | _ = good M' refl
+...        | nothing | [ ≡ ] = ungood λ{M' refl → helper ≡}
+  where
+  helper : ∀ {Γ A} {M : Γ ⊢ A} → infer' (erase M) ≢ nothing
+  helper {M = M} rewrite completeness M = λ ()
