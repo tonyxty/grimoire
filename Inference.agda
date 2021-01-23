@@ -1,11 +1,12 @@
 {-# OPTIONS --safe --without-K #-}
 open import Stlc
 open import Data.Nat
-open import Data.Product renaming (_,_ to ⟪_,_⟫)
 open import Data.Maybe
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality
+
+-- Untyped variable references and terms
 
 data Var : Context → Set where
   head : ∀ {Γ A} → Var (Γ , A)
@@ -54,6 +55,8 @@ erase (`S M) = `S (erase M)
 erase case M [Z⇒ M₁ |S⇒ M₂ ] = case erase M [Z⇒ erase M₁ |S⇒ erase M₂ ]
 erase (μ M) = μ erase M
 
+-- Correct-by-type inference
+
 data InferenceResult {Γ} (M : Term Γ) : Set where
   ⟨_,_,_⟩ : ∀ (A : Type) (M' : Γ ⊢ A) → erase M' ≡ M → InferenceResult M
 
@@ -87,6 +90,8 @@ infer (μ_ {Γ} {A} M) = do
   refl ← unify A A'
   just ⟨ A , μ M , refl ⟩
 
+-- Examples
+
 `ungood : Term ∅
 `ungood = (`S (`S `Z)) ∙ `Z
 
@@ -104,3 +109,25 @@ _ = refl
 
 _ : infer `doubleplusungood ≡ nothing
 _ = refl
+
+-- Completeness
+
+completenessVar : ∀ {Γ A} (x : Γ ∋ A) → inferVar (eraseVar x) ≡ var A x refl
+completenessVar head = refl
+completenessVar (tail x) rewrite completenessVar x = refl
+
+-- Note that the following essentially asserts that Type is an h-Set.
+unifySelf : ∀ (A : Type) → Type≟ A A ≡ yes refl
+unifySelf `ℕ = refl
+unifySelf (A ⇒ B) rewrite unifySelf A | unifySelf B = refl
+
+completeness : ∀ {Γ A} (M : Γ ⊢ A) → infer (erase M) ≡ just ⟨ A , M , refl ⟩
+completeness (` x) rewrite completenessVar x = refl
+completeness (ƛ A ⇒ M) rewrite completeness M = refl
+completeness (_∙_ {A = A} M₁ M₂)
+  rewrite completeness M₁ | completeness M₂ | unifySelf A = refl
+completeness `Z = refl
+completeness (`S M) rewrite completeness M = refl
+completeness {A = A} case M [Z⇒ M₁ |S⇒ M₂ ]
+  rewrite completeness M | completeness M₁ | completeness M₂ | unifySelf A = refl
+completeness {A = A} (μ M) rewrite completeness M | unifySelf A = refl
