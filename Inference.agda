@@ -1,7 +1,7 @@
 {-# OPTIONS --safe --without-K #-}
 open import Stlc
 open import Data.Nat
-open import Data.Product renaming (_,_ to ⟨_,_⟩)
+open import Data.Product renaming (_,_ to ⟪_,_⟫)
 open import Data.Maybe
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
@@ -10,10 +10,6 @@ open import Relation.Binary.PropositionalEquality
 data Var : Context → Set where
   head : ∀ {Γ A} → Var (Γ , A)
   tail : ∀ {Γ A} → Var Γ → Var (Γ , A)
-
-inferVar : ∀ {Γ} → Var Γ → Σ[ A ∈ Type ] (Γ ∋ A)
-inferVar (head {A = A}) = ⟨ A , head ⟩
-inferVar (tail x) = map₂ tail (inferVar x)
 
 data Term : Context → Set where
   `_ : ∀ {Γ} → Var Γ → Term Γ
@@ -36,34 +32,60 @@ unify A B with Type≟ A B
 ...          | yes ≡ = just ≡
 ...          | no _ = nothing
 
-infer : ∀ {Γ} → Term Γ → Maybe (Σ[ A ∈ Type ] (Γ ⊢ A))
-infer (` x) = just (map₂ `_ (inferVar x))
+eraseVar : ∀ {Γ A} → Γ ∋ A → Var Γ
+eraseVar head = head
+eraseVar (tail ∋A) = tail (eraseVar ∋A)
+
+data InferenceVarResult {Γ} (x : Var Γ) : Set where
+  var : ∀ (A : Type) (x' : Γ ∋ A) → eraseVar x' ≡ x → InferenceVarResult x
+
+inferVar : ∀ {Γ} (x : Var Γ) → InferenceVarResult x
+inferVar (head {A = A}) = var A head refl
+-- I wish Agda has let binding for irrefutable patterns
+inferVar (tail x) with inferVar x
+...                  | var A x' refl = var A (tail x') refl
+
+erase : ∀ {Γ A} → Γ ⊢ A → Term Γ
+erase (` x) = ` (eraseVar x)
+erase (ƛ A ⇒ M) = ƛ A ⇒ erase M
+erase (M₁ ∙ M₂) = erase M₁ ∙ erase M₂
+erase `Z = `Z
+erase (`S M) = `S (erase M)
+erase case M [Z⇒ M₁ |S⇒ M₂ ] = case erase M [Z⇒ erase M₁ |S⇒ erase M₂ ]
+erase (μ M) = μ erase M
+
+data InferenceResult {Γ} (M : Term Γ) : Set where
+  ⟨_,_,_⟩ : ∀ (A : Type) (M' : Γ ⊢ A) → erase M' ≡ M → InferenceResult M
+
+infer : ∀ {Γ} (M : Term Γ) → Maybe (InferenceResult M)
+infer (` x) with inferVar x
+...            | var A x' refl = just ⟨ A , ` x' , refl ⟩
 infer (ƛ A ⇒ M) = do
-  ⟨ B , M ⟩ ← infer M
-  just ⟨ A ⇒ B , ƛ A ⇒ M ⟩
--- I wish Agda has MonadFail and incomplete pattern matching in do-blocks
-infer (M₁ ∙ M₂) with infer M₁
-...                | just ⟨ A ⇒ B , M₁' ⟩ = do
-                                         ⟨ A' , M₂ ⟩ ← infer M₂
-                                         refl ← unify A A'
-                                         just ⟨ B , M₁' ∙ M₂ ⟩
-...                | _ = nothing
-infer `Z = just ⟨ `ℕ , `Z ⟩
-infer (`S M) = do
-  ⟨ A , M ⟩ ← infer M
-  refl ← unify A `ℕ
-  just ⟨ `ℕ , `S M ⟩
-infer case M [Z⇒ M₁ |S⇒ M₂ ] = do
-  ⟨ A , M ⟩ ← infer M
-  refl ← unify A `ℕ
-  ⟨ B , M₁ ⟩ ← infer M₁
-  ⟨ B' , M₂ ⟩ ← infer M₂
-  refl ← unify B B'
-  just ⟨ B , case M [Z⇒ M₁ |S⇒ M₂ ] ⟩
-infer (μ_ {Γ} {A} M) = do
-  ⟨ A' , M ⟩ ← infer M
+  ⟨ B , M , refl ⟩ ← infer M
+  just ⟨ A ⇒ B , ƛ A ⇒ M , refl ⟩
+-- Ok, Agda actually has incomplete pattern matching in do-blocks, and works better than MonadFail!  Hooray!
+infer (M₁ ∙ M₂) = do
+  ⟨ A ⇒ B , M₁ , refl ⟩ ← infer M₁
+                        where _ → nothing
+  ⟨ A' , M₂ , refl ⟩ ← infer M₂
   refl ← unify A A'
-  just ⟨ A , μ M ⟩
+  just ⟨ B , M₁ ∙ M₂ , refl ⟩
+infer `Z = just ⟨ `ℕ , `Z , refl ⟩
+infer (`S M) = do
+  ⟨ A , M , refl ⟩ ← infer M
+  refl ← unify A `ℕ
+  just ⟨ `ℕ , `S M , refl ⟩
+infer case M [Z⇒ M₁ |S⇒ M₂ ] = do
+  ⟨ A , M , refl ⟩ ← infer M
+  refl ← unify A `ℕ
+  ⟨ B , M₁ , refl ⟩ ← infer M₁
+  ⟨ B' , M₂ , refl ⟩ ← infer M₂
+  refl ← unify B B'
+  just ⟨ B , case M [Z⇒ M₁ |S⇒ M₂ ] , refl ⟩
+infer (μ_ {Γ} {A} M) = do
+  ⟨ A' , M , refl ⟩ ← infer M
+  refl ← unify A A'
+  just ⟨ A , μ M , refl ⟩
 
 `ungood : Term ∅
 `ungood = (`S (`S `Z)) ∙ `Z
