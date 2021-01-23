@@ -38,13 +38,13 @@ eraseVar head = head
 eraseVar (tail ∋A) = tail (eraseVar ∋A)
 
 data InferenceVarResult {Γ} (x : Var Γ) : Set where
-  var : ∀ (A : Type) (x' : Γ ∋ A) → eraseVar x' ≡ x → InferenceVarResult x
+  ⟨_,_,_⟩ : ∀ (A : Type) (x' : Γ ∋ A) → eraseVar x' ≡ x → InferenceVarResult x
 
 inferVar : ∀ {Γ} (x : Var Γ) → InferenceVarResult x
-inferVar (head {A = A}) = var A head refl
+inferVar (head {A = A}) = ⟨ A , head , refl ⟩
 -- I wish Agda has let binding for irrefutable patterns
 inferVar (tail x) with inferVar x
-...                  | var A x' refl = var A (tail x') refl
+...                  | ⟨ A , x' , refl ⟩ = ⟨ A , (tail x') , refl ⟩
 
 erase : ∀ {Γ A} → Γ ⊢ A → Term Γ
 erase (` x) = ` (eraseVar x)
@@ -62,7 +62,7 @@ data InferenceResult {Γ} (M : Term Γ) : Set where
 
 infer : ∀ {Γ} (M : Term Γ) → Maybe (InferenceResult M)
 infer (` x) with inferVar x
-...            | var A x' refl = just ⟨ A , ` x' , refl ⟩
+...            | ⟨ A , x' , refl ⟩ = just ⟨ A , ` x' , refl ⟩
 infer (ƛ A ⇒ M) = do
   ⟨ B , M , refl ⟩ ← infer M
   just ⟨ A ⇒ B , ƛ A ⇒ M , refl ⟩
@@ -112,7 +112,7 @@ _ = refl
 
 -- Completeness
 
-completenessVar : ∀ {Γ A} (x : Γ ∋ A) → inferVar (eraseVar x) ≡ var A x refl
+completenessVar : ∀ {Γ A} (x : Γ ∋ A) → inferVar (eraseVar x) ≡ ⟨ A , x , refl ⟩
 completenessVar head = refl
 completenessVar (tail x) rewrite completenessVar x = refl
 
