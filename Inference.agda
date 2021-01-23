@@ -65,20 +65,20 @@ infer (μ_ {Γ} {A} M) = do
   refl ← unify A A'
   just ⟨ A , μ M ⟩
 
-`bad : Term ∅
-`bad = (`S (`S `Z)) ∙ `Z
+`ungood : Term ∅
+`ungood = (`S (`S `Z)) ∙ `Z
 
-_ : infer `bad ≡ nothing
+_ : infer `ungood ≡ nothing
 _ = refl
 
-`plusbad : Term ∅
-`plusbad = ƛ `ℕ ⇒ ƛ `ℕ ⇒ #var 0 ∙ #var 1
+`plusungood : Term ∅
+`plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ #var 0 ∙ #var 1
 
-_ : infer `plusbad ≡ nothing
+_ : infer `plusungood ≡ nothing
 _ = refl
 
-`doubleplusbad : Term ∅
-`doubleplusbad = μ_ {A = `ℕ} (#var 0 ∙ `Z)
+`doubleplusungood : Term ∅
+`doubleplusungood = μ_ {A = `ℕ} (#var 0 ∙ `Z)
 
-_ : infer `doubleplusbad ≡ nothing
+_ : infer `doubleplusungood ≡ nothing
 _ = refl
