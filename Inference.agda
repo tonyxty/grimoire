@@ -1,6 +1,7 @@
 {-# OPTIONS --safe --without-K #-}
 open import Stlc
 open import Data.Nat
+open import Data.Nat.Properties
 open import Data.Maybe
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
@@ -8,107 +9,100 @@ open import Relation.Binary.PropositionalEquality
 
 -- Untyped variable references and terms
 
-data Var : Context → Set where
-  head : ∀ {Γ A} → Var (Γ , A)
-  tail : ∀ {Γ A} → Var Γ → Var (Γ , A)
+data Term : Set where
+  `_ : ℕ → Term
+  ƛ_⇒_ : Type → Term → Term
+  _∙_ : Term → Term → Term
+  `Z : Term
+  `S : Term → Term
+  case_[Z⇒_|S⇒_] : Term → Term → Term → Term
+  μ[_]⇒_ : Type → Term → Term
 
-data Term : Context → Set where
-  `_ : ∀ {Γ} → Var Γ → Term Γ
-  ƛ_⇒_ : ∀ {Γ} (A : Type) → Term (Γ , A) → Term Γ
-  _∙_ : ∀ {Γ} → Term Γ → Term Γ → Term Γ
-  `Z : ∀ {Γ} → Term Γ
-  `S : ∀ {Γ} → Term Γ → Term Γ
-  case_[Z⇒_|S⇒_] : ∀ {Γ} → Term Γ → Term Γ → Term (Γ , `ℕ) → Term Γ
-  μ_ : ∀ {Γ A} → Term (Γ , A) → Term Γ
+eraseVar : ∀ {Γ A} → Γ ∋ A → ℕ
+eraseVar head = zero
+eraseVar (tail ∋A) = suc (eraseVar ∋A)
 
-lookupVar : (Γ : Context) → (i : ℕ) → (i<len : i < length Γ) → Var Γ
-lookupVar (_ , _) zero _ = head
-lookupVar (Γ , _) (suc i) (s≤s i<len) = tail (lookupVar Γ i i<len)
+data InferenceVarResult (Γ : Context) (x : ℕ) : Set where
+  good : ∀ {A} (x' : Γ ∋ A) → eraseVar x' ≡ x → InferenceVarResult Γ x
+  ungood : (∀ {A} (x' : Γ ∋ A) → eraseVar x' ≢ x) → InferenceVarResult Γ x
 
-#var : ∀ (i : ℕ) → {Γ : Context} → {i<len : True (i <? length Γ)} → Term Γ
-#var i {Γ} {i<len} = ` lookupVar Γ i (toWitness i<len)
+inferVar : ∀ (Γ : Context) (x : ℕ) → InferenceVarResult Γ x
+inferVar ∅ x = ungood λ ()
+inferVar (Γ , A) zero = good head refl
+inferVar (Γ , A) (suc x) with inferVar Γ x
+...                    | good x' refl = good (tail x') refl
+...                    | ungood ≢ = ungood (λ{(tail x') e → ≢ x' (suc-injective e)})
 
-unify : ∀ (A B : Type) → Maybe (A ≡ B)
-unify A B = decToMaybe (Type≟ A B)
+-- Correct-by-type inference
 
-eraseVar : ∀ {Γ A} → Γ ∋ A → Var Γ
-eraseVar head = head
-eraseVar (tail ∋A) = tail (eraseVar ∋A)
-
-data InferenceVarResult {Γ} (x : Var Γ) : Set where
-  ⟨_,_,_⟩ : ∀ (A : Type) (x' : Γ ∋ A) → eraseVar x' ≡ x → InferenceVarResult x
-
-inferVar : ∀ {Γ} (x : Var Γ) → InferenceVarResult x
-inferVar (head {A = A}) = ⟨ A , head , refl ⟩
--- Ok, Agda actually does have with-binding for irrefutable patterns
-inferVar (tail x) with ⟨ A , x' , refl ⟩ ← inferVar x = ⟨ A , (tail x') , refl ⟩
-
-erase : ∀ {Γ A} → Γ ⊢ A → Term Γ
+erase : ∀ {Γ A} → Γ ⊢ A → Term
 erase (` x) = ` (eraseVar x)
 erase (ƛ A ⇒ M) = ƛ A ⇒ erase M
 erase (M₁ ∙ M₂) = erase M₁ ∙ erase M₂
 erase `Z = `Z
 erase (`S M) = `S (erase M)
 erase case M [Z⇒ M₁ |S⇒ M₂ ] = case erase M [Z⇒ erase M₁ |S⇒ erase M₂ ]
-erase (μ M) = μ erase M
+erase (μ_ {A = A} M) = μ[ A ]⇒ erase M
 
--- Correct-by-type inference
+unify : ∀ (A B : Type) → Maybe (A ≡ B)
+unify A B = decToMaybe (Type≟ A B)
 
-data InferenceGoodResult {Γ} (M : Term Γ) : Set where
-  ⟨_,_,_⟩ : ∀ (A : Type) (M' : Γ ⊢ A) → erase M' ≡ M → InferenceGoodResult M
+data InferenceGoodResult (Γ : Context) (M : Term) : Set where
+  ⟨_,_,_⟩ : ∀ (A : Type) (M' : Γ ⊢ A) → erase M' ≡ M → InferenceGoodResult Γ M
 
-infer' : ∀ {Γ} (M : Term Γ) → Maybe (InferenceGoodResult M)
-infer' (` x) with ⟨ A , x' , refl ⟩ ← inferVar x = just ⟨ A , ` x' , refl ⟩
-infer' (ƛ A ⇒ M) = do
-  ⟨ B , M , refl ⟩ ← infer' M
+infer' : ∀ (Γ : Context) (M : Term) → Maybe (InferenceGoodResult Γ M)
+infer' Γ (` x) with inferVar Γ x
+...               | good {A} x' refl = just ⟨ A , ` x' , refl ⟩
+...               | ungood ≢ = nothing
+infer' Γ (ƛ A ⇒ M) = do
+  ⟨ B , M , refl ⟩ ← infer' (Γ , A) M
   just ⟨ A ⇒ B , ƛ A ⇒ M , refl ⟩
--- Ok, Agda actually has incomplete pattern matching in do-blocks, and works better than MonadFail!  Hooray!
-infer' (M₁ ∙ M₂) = do
-  ⟨ A ⇒ B , M₁ , refl ⟩ ← infer' M₁
+infer' Γ (M₁ ∙ M₂) = do
+  ⟨ A ⇒ B , M₁ , refl ⟩ ← infer' Γ M₁
                         where _ → nothing
-  ⟨ A' , M₂ , refl ⟩ ← infer' M₂
+  ⟨ A' , M₂ , refl ⟩ ← infer' Γ M₂
   refl ← unify A A'
   just ⟨ B , M₁ ∙ M₂ , refl ⟩
-infer' `Z = just ⟨ `ℕ , `Z , refl ⟩
-infer' (`S M) = do
-  ⟨ A , M , refl ⟩ ← infer' M
+infer' Γ `Z = just ⟨ `ℕ , `Z , refl ⟩
+infer' Γ (`S M) = do
+  ⟨ A , M , refl ⟩ ← infer' Γ M
   refl ← unify A `ℕ
   just ⟨ `ℕ , `S M , refl ⟩
-infer' case M [Z⇒ M₁ |S⇒ M₂ ] = do
-  ⟨ A , M , refl ⟩ ← infer' M
+infer' Γ case M [Z⇒ M₁ |S⇒ M₂ ] = do
+  ⟨ A , M , refl ⟩ ← infer' Γ M
   refl ← unify A `ℕ
-  ⟨ B , M₁ , refl ⟩ ← infer' M₁
-  ⟨ B' , M₂ , refl ⟩ ← infer' M₂
+  ⟨ B , M₁ , refl ⟩ ← infer' Γ M₁
+  ⟨ B' , M₂ , refl ⟩ ← infer' (Γ , `ℕ) M₂
   refl ← unify B B'
   just ⟨ B , case M [Z⇒ M₁ |S⇒ M₂ ] , refl ⟩
-infer' (μ_ {Γ} {A} M) = do
-  ⟨ A' , M , refl ⟩ ← infer' M
+infer' Γ (μ[ A ]⇒ M) = do
+  ⟨ A' , M , refl ⟩ ← infer' (Γ , A) M
   refl ← unify A A'
   just ⟨ A , μ M , refl ⟩
 
 -- Examples
 
-`ungood : Term ∅
+`ungood : Term
 `ungood = (`S (`S `Z)) ∙ `Z
 
-_ : infer' `ungood ≡ nothing
+_ : infer' ∅ `ungood ≡ nothing
 _ = refl
 
-`plusungood : Term ∅
-`plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ #var 0 ∙ #var 1
+`plusungood : Term
+`plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ ` 0 ∙ ` 1
 
-_ : infer' `plusungood ≡ nothing
+_ : infer' ∅ `plusungood ≡ nothing
 _ = refl
 
-`doubleplusungood : Term ∅
-`doubleplusungood = μ_ {A = `ℕ} (#var 0 ∙ `Z)
+`doubleplusungood : Term
+`doubleplusungood = μ[ `ℕ ]⇒ (` 0 ∙ ` 0)
 
-_ : infer' `doubleplusungood ≡ nothing
+_ : infer' ∅ `doubleplusungood ≡ nothing
 _ = refl
 
 -- Completeness
 
-completenessVar : ∀ {Γ A} (x : Γ ∋ A) → inferVar (eraseVar x) ≡ ⟨ A , x , refl ⟩
+completenessVar : ∀ {Γ A} (x : Γ ∋ A) → inferVar Γ (eraseVar x) ≡ good x refl
 completenessVar head = refl
 completenessVar (tail x) rewrite completenessVar x = refl
 
@@ -117,7 +111,7 @@ unifySelf : ∀ (A : Type) → Type≟ A A ≡ yes refl
 unifySelf `ℕ = refl
 unifySelf (A ⇒ B) rewrite unifySelf A | unifySelf B = refl
 
-completeness : ∀ {Γ A} (M : Γ ⊢ A) → infer' (erase M) ≡ just ⟨ A , M , refl ⟩
+completeness : ∀ {Γ A} (M : Γ ⊢ A) → infer' Γ (erase M) ≡ just ⟨ A , M , refl ⟩
 completeness (` x) rewrite completenessVar x = refl
 completeness (ƛ A ⇒ M) rewrite completeness M = refl
 completeness (_∙_ {A = A} M₁ M₂)
@@ -128,14 +122,14 @@ completeness {A = A} case M [Z⇒ M₁ |S⇒ M₂ ]
   rewrite completeness M | completeness M₁ | completeness M₂ | unifySelf A = refl
 completeness {A = A} (μ M) rewrite completeness M | unifySelf A = refl
 
-data InferenceResult {Γ} (M : Term Γ) : Set where
-  good : ∀ {A} (M' : Γ ⊢ A) → erase M' ≡ M → InferenceResult M
-  ungood : (∀ {A} (M' : Γ ⊢ A) → erase M' ≢ M) → InferenceResult M
+data InferenceResult (Γ : Context) (M : Term) : Set where
+  good : ∀ {A} (M' : Γ ⊢ A) → erase M' ≡ M → InferenceResult Γ M
+  ungood : (∀ {A} (M' : Γ ⊢ A) → erase M' ≢ M) → InferenceResult Γ M
 
-infer : ∀ {Γ} (M : Term Γ) → InferenceResult M
-infer M with infer' M | inspect infer' M
+infer : ∀ (Γ : Context) (M : Term) → InferenceResult Γ M
+infer Γ M with infer' Γ M | inspect (infer' Γ) M
 ...        | just ⟨ A , M' , refl ⟩ | _ = good M' refl
 ...        | nothing | [ ≡ ] = ungood λ{M' refl → helper ≡}
   where
-  helper : ∀ {Γ A} {M : Γ ⊢ A} → infer' (erase M) ≢ nothing
+  helper : ∀ {Γ A} {M : Γ ⊢ A} → infer' Γ (erase M) ≢ nothing
   helper {M = M} rewrite completeness M = λ ()
