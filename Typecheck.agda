@@ -85,19 +85,19 @@ check' Γ (μ[ A ]⇒ M) = do
 `ungood : Term
 `ungood = (`S (`S `Z)) ∙ `Z
 
-_ : check' ∅ `ungood ≡ nothing
+_ : ∀ {Γ} → check' Γ `ungood ≡ nothing
 _ = refl
 
 `plusungood : Term
 `plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ ` 0 ∙ ` 1
 
-_ : check' ∅ `plusungood ≡ nothing
+_ : ∀ {Γ} → check' Γ `plusungood ≡ nothing
 _ = refl
 
 `doubleplusungood : Term
 `doubleplusungood = μ[ `ℕ ]⇒ (` 0 ∙ ` 0)
 
-_ : check' ∅ `doubleplusungood ≡ nothing
+_ : ∀ {Γ} → check' Γ `doubleplusungood ≡ nothing
 _ = refl
 
 -- Completeness
