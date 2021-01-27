@@ -78,18 +78,18 @@ subst-∘ₛ {A = A} ρ σ (μ M) rewrite ⋆-distr-∘ₛ ρ σ A | subst-∘�
 ∘ₛ-assoc : ∀ {Γ Δ Θ Ξ} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (τ : Subst Θ Ξ) → (τ ∘ₛ σ) ∘ₛ ρ ≡ τ ∘ₛ (σ ∘ₛ ρ)
 ∘ₛ-assoc ρ σ τ = subst-≡ (λ ∋A → subst-∘ₛ ρ σ (τ _ ∋A))
 
-ContextCategory : Category 0ℓ 0ℓ 0ℓ
-ContextCategory = record
-                    { Obj = Context
-                    ; _⇒_ = Subst
-                    ; _≈_ = _≡_
-                    ; id = idₛ
-                    ; _∘_ = _∘ₛ_
-                    ; assoc = λ {_ _ _ _ ρ σ τ} → ∘ₛ-assoc ρ σ τ
-                    ; sym-assoc = λ {_ _ _ _ ρ σ τ} → sym (∘ₛ-assoc ρ σ τ)
-                    ; identityˡ = refl
-                    ; identityʳ = ∘ₛ-identityʳ
-                    ; identity² = refl
-                    ; equiv = Eq.isEquivalence
-                    ; ∘-resp-≈ = λ{refl refl → refl}
-                    }
+open Category renaming (_⇒_ to _C⇒_)
+
+instance ContextCategory : Category 0ℓ 0ℓ 0ℓ
+ContextCategory .Obj = Context
+ContextCategory ._C⇒_ = Subst
+ContextCategory ._≈_ = _≡_
+ContextCategory .id = idₛ
+ContextCategory ._∘_ = _∘ₛ_
+ContextCategory .assoc {h = h} = ∘ₛ-assoc _ _ h
+ContextCategory .sym-assoc {h = h} = sym (∘ₛ-assoc _ _ h)
+ContextCategory .identityˡ = refl
+ContextCategory .identityʳ = ∘ₛ-identityʳ
+ContextCategory .identity² = refl
+ContextCategory .equiv = Eq.isEquivalence
+ContextCategory .∘-resp-≈ refl refl = refl
