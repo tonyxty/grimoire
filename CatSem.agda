@@ -30,7 +30,8 @@ subst-idₛ `Z = refl
 subst-idₛ (`S M) rewrite subst-idₛ M = refl
 subst-idₛ {Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-idₛ M
                                            | subst-idₛ M₁
-                                           | idₛ♯≡idₛ Γ `ℕ | subst-idₛ M₂ = refl
+                                           | idₛ♯≡idₛ Γ `ℕ
+                                           | subst-idₛ M₂ = refl
 subst-idₛ {Γ} {A} (μ M) rewrite idₛ♯≡idₛ Γ A | subst-idₛ M = refl
 
 infixr 9 _∘ₛ_
@@ -44,13 +45,13 @@ _∘ₛ_ : ∀ {Γ Δ Θ} → Subst Δ Θ → Subst Γ Δ → Subst Γ Θ
   helper : ∀ {Γ Δ B} (ρ : Subst Γ Δ) (M : Δ ⊢ B) (A : Type) →
     rename tail (subst ρ M) ≡ subst (ρ ⋆ A) (rename tail M)
   helper ρ (` x) A = refl
-  helper ρ (ƛ C ⇒ M) A = {!!}
+  helper ρ (ƛ C ⇒ M) A = Eq.cong (ƛ C ⇒_) {!!}
   helper ρ (M₁ ∙ M₂) A rewrite helper ρ M₁ A | helper ρ M₂ A = refl
   helper ρ `Z A = refl
   helper ρ (`S M) A rewrite helper ρ M A = refl
   helper ρ case M [Z⇒ M₁ |S⇒ M₂ ] A rewrite helper ρ M A
                                           | helper ρ M₁ A
-                                          = {!!}
+                                          = Eq.cong (case subst _ (rename _ M) [Z⇒ _ |S⇒_]) {!!}
   helper {B = B} ρ (μ M) A = {!!}
 
   pt≡ : ∀ {Γ Δ Θ} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (A : Type) {B} (∋B : Θ , A ∋ B) →
@@ -66,7 +67,8 @@ subst-∘ₛ ρ σ `Z = refl
 subst-∘ₛ ρ σ (`S M) rewrite subst-∘ₛ ρ σ M = refl
 subst-∘ₛ ρ σ case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-∘ₛ ρ σ M
                                           | subst-∘ₛ ρ σ M₁
-                                          | ⋆-distr-∘ₛ ρ σ `ℕ | subst-∘ₛ (ρ ♯) (σ ♯) M₂ = refl
+                                          | ⋆-distr-∘ₛ ρ σ `ℕ
+                                          | subst-∘ₛ (ρ ♯) (σ ♯) M₂ = refl
 subst-∘ₛ {A = A} ρ σ (μ M) rewrite ⋆-distr-∘ₛ ρ σ A | subst-∘ₛ (ρ ♯) (σ ♯) M = refl
 
 ∘ₛ-identityʳ : ∀ {Γ Δ} {ρ : Subst Γ Δ} → ρ ∘ₛ idₛ ≡ ρ
