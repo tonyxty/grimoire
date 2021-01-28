@@ -1,7 +1,6 @@
 {-# OPTIONS --safe --without-K #-}
 open import Data.Maybe
 open import Data.Nat
-open import Data.Product renaming (_,_ to ⟨_,_⟩)
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
@@ -11,18 +10,14 @@ data Type : Set where
   `ℕ : Type
   _⇒_ : Type → Type → Type
 
-inversion : ∀ {A₁ A₂ B₁ B₂} → (A₁ ⇒ A₂) ≡ (B₁ ⇒ B₂) → A₁ ≡ B₁ × A₂ ≡ B₂
-inversion refl = ⟨ refl , refl ⟩
-
 Type≟ : ∀ (A B : Type) → Dec (A ≡ B)
 Type≟ `ℕ `ℕ = yes refl
 Type≟ `ℕ (B ⇒ B₁) = no (λ ())
 Type≟ (A₁ ⇒ A₂) `ℕ = no (λ ())
-Type≟ (A₁ ⇒ A₂) (B₁ ⇒ B₂) with Type≟ A₁ B₁
-...                          | no ≢₁ = no λ ≡ → ≢₁ (proj₁ (inversion ≡))
-...                          | yes refl with Type≟ A₂ B₂
-...                                        | no ≢₂ = no λ ≡ → ≢₂ (proj₂ (inversion ≡))
-...                                        | yes refl = yes refl
+Type≟ (A₁ ⇒ A₂) (B₁ ⇒ B₂) with Type≟ A₁ B₁ | Type≟ A₂ B₂
+...                          | yes refl    | yes refl = yes refl
+...                          | _           | no ≢₂ = no λ{refl → ≢₂ refl}
+...                          | no ≢₁       | _ = no λ{refl → ≢₁ refl}
 
 infixr 1 _,_
 data Context : Set where
