@@ -16,7 +16,7 @@ data Term : Set where
   `Z : Term
   `S : Term → Term
   case_[Z⇒_|S⇒_] : Term → Term → Term → Term
-  μ[_]⇒_ : Type → Term → Term
+  μ_⇒_ : Type → Term → Term
 
 eraseVar : ∀ {Γ A} → Γ ∋ A → ℕ
 eraseVar head = zero
@@ -42,7 +42,7 @@ erase (M₁ ∙ M₂) = erase M₁ ∙ erase M₂
 erase `Z = `Z
 erase (`S M) = `S (erase M)
 erase case M [Z⇒ M₁ |S⇒ M₂ ] = case erase M [Z⇒ erase M₁ |S⇒ erase M₂ ]
-erase (μ_ {A = A} M) = μ[ A ]⇒ erase M
+erase (μ_ {A = A} M) = μ A ⇒ erase M
 
 unify : ∀ (A B : Type) → Maybe (A ≡ B)
 unify A B = decToMaybe (Type≟ A B)
@@ -56,9 +56,9 @@ check' Γ (` x) with checkVar Γ x
 ...               | ungood ≢ = nothing
 check' Γ (ƛ A ⇒ M) = do
   ⟨ B , M , refl ⟩ ← check' (Γ , A) M
-  just ⟨ A ⇒ B , ƛ A ⇒ M , refl ⟩
+  just ⟨ A ↠ B , ƛ A ⇒ M , refl ⟩
 check' Γ (M₁ ∙ M₂) = do
-  ⟨ A ⇒ B , M₁ , refl ⟩ ← check' Γ M₁
+  ⟨ A ↠ B , M₁ , refl ⟩ ← check' Γ M₁
                         where _ → nothing
   ⟨ A' , M₂ , refl ⟩ ← check' Γ M₂
   refl ← unify A A'
@@ -75,7 +75,7 @@ check' Γ case M [Z⇒ M₁ |S⇒ M₂ ] = do
   ⟨ B' , M₂ , refl ⟩ ← check' (Γ , `ℕ) M₂
   refl ← unify B B'
   just ⟨ B , case M [Z⇒ M₁ |S⇒ M₂ ] , refl ⟩
-check' Γ (μ[ A ]⇒ M) = do
+check' Γ (μ A ⇒ M) = do
   ⟨ A' , M , refl ⟩ ← check' (Γ , A) M
   refl ← unify A A'
   just ⟨ A , μ M , refl ⟩
@@ -96,7 +96,7 @@ private
   _ = refl
 
   `doubleplusungood : Term
-  `doubleplusungood = μ[ `ℕ ]⇒ (` 0 ∙ ` 0)
+  `doubleplusungood = μ `ℕ ⇒ (` 0 ∙ ` 0)
 
   _ : ∀ {Γ} → check' Γ `doubleplusungood ≡ nothing
   _ = refl
@@ -110,7 +110,7 @@ completenessVar (tail x) rewrite completenessVar x = refl
 -- Note that the following essentially asserts that Type is an h-Set.
 unifySelf : ∀ (A : Type) → Type≟ A A ≡ yes refl
 unifySelf `ℕ = refl
-unifySelf (A ⇒ B) rewrite unifySelf A | unifySelf B = refl
+unifySelf (A ↠ B) rewrite unifySelf A | unifySelf B = refl
 
 completeness : ∀ {Γ A} (M : Γ ⊢ A) → check' Γ (erase M) ≡ just ⟨ A , M , refl ⟩
 completeness (` x) rewrite completenessVar x = refl

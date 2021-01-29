@@ -5,16 +5,16 @@ open import Relation.Nullary
 open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-infixr 2 _⇒_
+infixr 2 _↠_
 data Type : Set where
   `ℕ : Type
-  _⇒_ : Type → Type → Type
+  _↠_ : Type → Type → Type
 
 Type≟ : ∀ (A B : Type) → Dec (A ≡ B)
 Type≟ `ℕ `ℕ = yes refl
-Type≟ `ℕ (B ⇒ B₁) = no (λ ())
-Type≟ (A₁ ⇒ A₂) `ℕ = no (λ ())
-Type≟ (A₁ ⇒ A₂) (B₁ ⇒ B₂) with Type≟ A₁ B₁ | Type≟ A₂ B₂
+Type≟ `ℕ (B ↠ B₁) = no (λ ())
+Type≟ (A₁ ↠ A₂) `ℕ = no (λ ())
+Type≟ (A₁ ↠ A₂) (B₁ ↠ B₂) with Type≟ A₁ B₁ | Type≟ A₂ B₂
 ...                          | yes refl    | yes refl = yes refl
 ...                          | _           | no ≢₂ = no λ{refl → ≢₂ refl}
 ...                          | no ≢₁       | _ = no λ{refl → ≢₁ refl}
@@ -37,8 +37,8 @@ infix 4 `S
 infix 2 μ_
 data _⊢_ : Context → Type → Set where
   `_ : ∀ {Γ A} → Γ ∋ A → Γ ⊢ A
-  ƛ_⇒_ : ∀ {Γ B} (A : Type) → Γ , A ⊢ B → Γ ⊢ A ⇒ B
-  _∙_ : ∀ {Γ A B} → Γ ⊢ A ⇒ B → Γ ⊢ A → Γ ⊢ B
+  ƛ_⇒_ : ∀ {Γ B} (A : Type) → Γ , A ⊢ B → Γ ⊢ A ↠ B
+  _∙_ : ∀ {Γ A B} → Γ ⊢ A ↠ B → Γ ⊢ A → Γ ⊢ B
   `Z : ∀ {Γ} → Γ ⊢ `ℕ
   `S : ∀ {Γ} → Γ ⊢ `ℕ → Γ ⊢ `ℕ
   case_[Z⇒_|S⇒_] : ∀ {Γ A} → Γ ⊢ `ℕ → Γ ⊢ A → Γ , `ℕ ⊢ A → Γ ⊢ A
@@ -69,10 +69,10 @@ private
   `two : ∀ {Γ} → Γ ⊢ `ℕ
   `two = `S (`S `Z)
 
-  `suc : ∀ {Γ} → Γ ⊢ `ℕ ⇒ `ℕ
+  `suc : ∀ {Γ} → Γ ⊢ `ℕ ↠ `ℕ
   `suc = ƛ `ℕ ⇒ `S (# 0)
 
-  `plus : ∀ {Γ} → Γ ⊢ `ℕ ⇒ `ℕ ⇒ `ℕ
+  `plus : ∀ {Γ} → Γ ⊢ `ℕ ↠ `ℕ ↠ `ℕ
   `plus = μ (ƛ `ℕ ⇒ ƛ `ℕ ⇒
              case # 1
              [Z⇒ # 0
@@ -134,8 +134,8 @@ data Value : ∀ {Γ A} → Γ ⊢ A → Set where
 
 infix 0 _—→_
 data _—→_ : ∀ {Γ A} → Γ ⊢ A → Γ ⊢ A → Set where
-  ξ-∙₁ : ∀ {Γ A B} → {M M' : Γ ⊢ A ⇒ B} → {N : Γ ⊢ A} → M —→ M' → M ∙ N —→ M' ∙ N
-  ξ-∙₂ : ∀ {Γ A B} → {V : Γ ⊢ A ⇒ B} → {N N' : Γ ⊢ A} → Value V → N —→ N' → V ∙ N —→ V ∙ N'
+  ξ-∙₁ : ∀ {Γ A B} → {M M' : Γ ⊢ A ↠ B} → {N : Γ ⊢ A} → M —→ M' → M ∙ N —→ M' ∙ N
+  ξ-∙₂ : ∀ {Γ A B} → {V : Γ ⊢ A ↠ B} → {N N' : Γ ⊢ A} → Value V → N —→ N' → V ∙ N —→ V ∙ N'
   β-ƛ : ∀ {Γ A B} → {M : Γ , A ⊢ B} → {V : Γ ⊢ A} → Value V → (ƛ A ⇒ M) ∙ V —→ M [ V ]
   ξ-S : ∀ {Γ} → {M M' : Γ ⊢ `ℕ} → M —→ M' → (`S M) —→ (`S M')
   ξ-case : ∀ {Γ A} → {M M' : Γ ⊢ `ℕ} → {N₁ : Γ ⊢ A} → {N₂ : Γ , `ℕ ⊢ A} → M —→ M' →

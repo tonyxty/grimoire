@@ -1,5 +1,5 @@
 {-# OPTIONS --safe --without-K #-}
-open import Stlc renaming (_⇒_ to _↠_)
+open import Stlc
 open import Data.Nat
 open import Data.Maybe
 open import Data.Product renaming (_,_ to ⟨_,_⟩)
