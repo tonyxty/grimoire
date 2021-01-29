@@ -82,23 +82,24 @@ check' Γ (μ[ A ]⇒ M) = do
 
 -- Examples
 
-`ungood : Term
-`ungood = (`S (`S `Z)) ∙ `Z
+private
+  `ungood : Term
+  `ungood = (`S (`S `Z)) ∙ `Z
 
-_ : ∀ {Γ} → check' Γ `ungood ≡ nothing
-_ = refl
+  _ : ∀ {Γ} → check' Γ `ungood ≡ nothing
+  _ = refl
 
-`plusungood : Term
-`plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ ` 0 ∙ ` 1
+  `plusungood : Term
+  `plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ ` 0 ∙ ` 1
 
-_ : ∀ {Γ} → check' Γ `plusungood ≡ nothing
-_ = refl
+  _ : ∀ {Γ} → check' Γ `plusungood ≡ nothing
+  _ = refl
 
-`doubleplusungood : Term
-`doubleplusungood = μ[ `ℕ ]⇒ (` 0 ∙ ` 0)
+  `doubleplusungood : Term
+  `doubleplusungood = μ[ `ℕ ]⇒ (` 0 ∙ ` 0)
 
-_ : ∀ {Γ} → check' Γ `doubleplusungood ≡ nothing
-_ = refl
+  _ : ∀ {Γ} → check' Γ `doubleplusungood ≡ nothing
+  _ = refl
 
 -- Completeness
 

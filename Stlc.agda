@@ -62,20 +62,21 @@ lookup (Γ , _) (suc i) (s≤s i<len) = tail (lookup Γ i i<len)
 
 -- Examples
 
-`one : ∀ {Γ} → Γ ⊢ `ℕ
-`one = `S `Z
+private
+  `one : ∀ {Γ} → Γ ⊢ `ℕ
+  `one = `S `Z
 
-`two : ∀ {Γ} → Γ ⊢ `ℕ
-`two = `S (`S `Z)
+  `two : ∀ {Γ} → Γ ⊢ `ℕ
+  `two = `S (`S `Z)
 
-`suc : ∀ {Γ} → Γ ⊢ `ℕ ⇒ `ℕ
-`suc = ƛ `ℕ ⇒ `S (# 0)
+  `suc : ∀ {Γ} → Γ ⊢ `ℕ ⇒ `ℕ
+  `suc = ƛ `ℕ ⇒ `S (# 0)
 
-`plus : ∀ {Γ} → Γ ⊢ `ℕ ⇒ `ℕ ⇒ `ℕ
-`plus = μ (ƛ `ℕ ⇒ ƛ `ℕ ⇒
-           case # 1
-           [Z⇒ # 0
-           |S⇒ `S (# 3 ∙ # 0 ∙ # 1) ])
+  `plus : ∀ {Γ} → Γ ⊢ `ℕ ⇒ `ℕ ⇒ `ℕ
+  `plus = μ (ƛ `ℕ ⇒ ƛ `ℕ ⇒
+             case # 1
+             [Z⇒ # 0
+             |S⇒ `S (# 3 ∙ # 0 ∙ # 1) ])
 
 -- Substitution
 
@@ -153,26 +154,27 @@ data _—↠_ {Γ A} : Γ ⊢ A → Γ ⊢ A → Set where
 
 -- Example of reduction
 
-_ : `plus {∅} ∙ `one ∙ `one —↠ `two
-_ =
-    `plus ∙ `one ∙ `one
-  —→⟨ ξ-∙₁ (ξ-∙₁ β-μ) ⟩
-    (ƛ `ℕ ⇒ ƛ `ℕ ⇒ case # 1 [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `one ∙ `one
-  —→⟨ ξ-∙₁ (β-ƛ (V-S V-Z)) ⟩
-    (ƛ `ℕ ⇒ case `one [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `one
-  —→⟨ β-ƛ (V-S V-Z) ⟩
-    case `one [Z⇒ `one |S⇒ `S (`plus ∙ # 0 ∙ `one) ]
-  —→⟨ β-S V-Z ⟩
-    `S (`plus ∙ `Z ∙ `one)
-  —→⟨ ξ-S (ξ-∙₁ (ξ-∙₁ β-μ)) ⟩
-    `S ((ƛ `ℕ ⇒ ƛ `ℕ ⇒ case # 1 [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `Z ∙ `one)
-  —→⟨ ξ-S (ξ-∙₁ (β-ƛ V-Z)) ⟩
-    `S ((ƛ `ℕ ⇒ case `Z [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `one)
-  —→⟨ ξ-S (β-ƛ (V-S V-Z)) ⟩
-    `S (case `Z [Z⇒ `one |S⇒ `S (`plus ∙ # 0 ∙ `one) ])
-  —→⟨ ξ-S β-Z ⟩
-    `two
-  ∎
+private
+  _ : `plus {∅} ∙ `one ∙ `one —↠ `two
+  _ =
+      `plus ∙ `one ∙ `one
+    —→⟨ ξ-∙₁ (ξ-∙₁ β-μ) ⟩
+      (ƛ `ℕ ⇒ ƛ `ℕ ⇒ case # 1 [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `one ∙ `one
+    —→⟨ ξ-∙₁ (β-ƛ (V-S V-Z)) ⟩
+      (ƛ `ℕ ⇒ case `one [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `one
+    —→⟨ β-ƛ (V-S V-Z) ⟩
+      case `one [Z⇒ `one |S⇒ `S (`plus ∙ # 0 ∙ `one) ]
+    —→⟨ β-S V-Z ⟩
+      `S (`plus ∙ `Z ∙ `one)
+    —→⟨ ξ-S (ξ-∙₁ (ξ-∙₁ β-μ)) ⟩
+      `S ((ƛ `ℕ ⇒ ƛ `ℕ ⇒ case # 1 [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `Z ∙ `one)
+    —→⟨ ξ-S (ξ-∙₁ (β-ƛ V-Z)) ⟩
+      `S ((ƛ `ℕ ⇒ case `Z [Z⇒ # 0 |S⇒ `S (`plus ∙ # 0 ∙ # 1) ]) ∙ `one)
+    —→⟨ ξ-S (β-ƛ (V-S V-Z)) ⟩
+      `S (case `Z [Z⇒ `one |S⇒ `S (`plus ∙ # 0 ∙ `one) ])
+    —→⟨ ξ-S β-Z ⟩
+      `two
+    ∎
 
 -- Properties of reduction
 
@@ -218,11 +220,12 @@ result (done {V} _ _) = just V
 
 -- Examples of evaluations
 
-`inf : ∅ ⊢ `ℕ
-`inf = μ `S (# 0)
+private
+  `inf : ∅ ⊢ `ℕ
+  `inf = μ `S (# 0)
 
-_ : result (eval 100 `inf) ≡ nothing
-_ = refl
+  _ : result (eval 100 `inf) ≡ nothing
+  _ = refl
 
-_ : result (eval 20 (`plus ∙ `two ∙ `two)) ≡ just (`S (`S (`S (`S `Z))))
-_ = refl
+  _ : result (eval 20 (`plus ∙ `two ∙ `two)) ≡ just (`S (`S (`S (`S `Z))))
+  _ = refl
