@@ -1,5 +1,8 @@
 {-# OPTIONS --safe --without-K #-}
-open import Stlc
+module Inference where
+
+open import Terms
+open import Reduction
 open import Data.Nat
 open import Data.Maybe
 open import Data.Product renaming (_,_ to ⟨_,_⟩)
@@ -10,39 +13,38 @@ open import Relation.Binary.PropositionalEquality
 -- In inheritance, on the contrary, the type of the term is inferred, and the term itself must be check against it.  Thus the term, the context, and the type are all inputs.
 -- For example, in an function application f ∙ x, f should be synthesized and then x can be inherited by looking at the type of f.
 
+Var = ℕ
+
+-- It's not strictly necessary to define Term↓ and Term↑ as two different types, but it makes the code easier to understand.
 data Term↓ : Set
 data Term↑ : Set
 
-infix 5 `_
 infixr 2 ƛ_
-infixl 3 _∙_
-infix 4 `S
 infixr 2 μ_
 infix 1 _↓_
 infix 1 _↑
 
--- It's not strictly necessary to define Term↓ and Term↑ as two different types, but it makes the code easier to understand.
 -- synthesized terms
 data Term↓ where
-  `_ : ℕ → Term↓
+  `_ : Var → Term↓
   _∙_ : Term↓ → Term↑ → Term↓
   _↓_ : Term↑ → Type → Term↓
 
 -- inherited terms
 data Term↑ where
   ƛ_ : Term↑ → Term↑
-  `Z : Term↑
-  `S : Term↑ → Term↑
+  Z : Term↑
+  S_ : Term↑ → Term↑
   case_[Z⇒_|S⇒_] : Term↑ → Term↑ → Term↑ → Term↑
   μ_ : Term↑ → Term↑
   _↑ : Term↓ → Term↑
 
 private
-  `two : Term↑
-  `two = `S (`S `Z)
+  `two' : Term↑
+  `two' = S S Z
 
-  `plus : Term↓
-  `plus = μ ƛ ƛ case ` 1 ↑ [Z⇒ ` 0 ↑ |S⇒ `S (` 3 ∙ (` 0 ↑) ∙ (` 1 ↑) ↑)] ↓ (`ℕ ↠ `ℕ ↠ `ℕ)
+  `plus' : Term↓
+  `plus' = μ ƛ ƛ case ` 1 ↑ [Z⇒ ` 0 ↑ |S⇒ S (` 3 ∙ (` 0 ↑) ∙ (` 1 ↑) ↑)] ↓ `ℕ ↠ `ℕ ↠ `ℕ
 
 checkVar : ∀ (Γ : Context) (x : ℕ) → Maybe (∃[ A ] (Γ ∋ A))
 checkVar ∅ x = nothing
@@ -66,16 +68,16 @@ synthesize Γ (M ↓ A) = do
   M ← inherit Γ A M
   just ⟨ A , M ⟩
 
-inherit Γ `ℕ (ƛ M) = nothing
 inherit Γ (A ↠ B) (ƛ M) = do
   M ← inherit (Γ , A) B M
   just (ƛ A ⇒ M)
-inherit Γ `ℕ `Z = just `Z
-inherit Γ (A ↠ B) `Z = nothing
-inherit Γ `ℕ (`S M) = do
+inherit Γ _ (ƛ M) = nothing
+inherit Γ `ℕ Z = just Z
+inherit Γ _ Z = nothing
+inherit Γ `ℕ (S M) = do
   M ← inherit Γ `ℕ M
-  just (`S M)
-inherit Γ (A ↠ B) (`S M) = nothing
+  just (S M)
+inherit Γ _ (S M) = nothing
 inherit Γ A case M [Z⇒ M₁ |S⇒ M₂ ] = do
   M ← inherit Γ `ℕ M
   M₁ ← inherit Γ A M₁
@@ -86,15 +88,15 @@ inherit Γ A (μ M) = do
   just (μ M)
 inherit Γ A (M ↑) = do
   ⟨ A' , M ⟩ ← synthesize Γ M
-  refl ← decToMaybe (Type≟ A A')
+  refl ← unify A A'
   just M
 
 private
-  _ : inherit ∅ `ℕ `two ≡ just (`S (`S `Z))
+  _ : inherit ∅ `ℕ `two' ≡ just `two
   _ = refl
 
   `plus⁺ : ∅ ⊢ `ℕ ↠ `ℕ ↠ `ℕ
-  `plus⁺ = proj₂ (from-just (synthesize ∅ `plus))
+  `plus⁺ = proj₂ (from-just (synthesize ∅ `plus'))
 
-  _ : result (eval 20 (`plus⁺ ∙ (`S (`S `Z)) ∙ (`S (`S `Z)))) ≡ just (`S (`S (`S (`S `Z))))
+  _ : result (eval 20 (`plus⁺ ∙ `two ∙ `two)) ≡ just ⌜ 4 ⌝
   _ = refl

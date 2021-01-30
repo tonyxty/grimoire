@@ -1,6 +1,7 @@
 {-# OPTIONS --without-K #-}
+module CatSem where
 
-open import Stlc
+open import Terms
 open import Categories.Category.Core
 open import Level
 import Relation.Binary.PropositionalEquality as Eq
@@ -24,10 +25,10 @@ idₛ♯≡idₛ Γ A = subst-≡ (λ{head → refl; (tail _) → refl})
 
 subst-idₛ : ∀ {Γ} {A : Type} (M : Γ ⊢ A) → subst idₛ M ≡ M
 subst-idₛ (` x) = refl
-subst-idₛ {Γ} {A ⇒ B} (ƛ .A ⇒ M) rewrite idₛ♯≡idₛ Γ A | subst-idₛ M = refl
+subst-idₛ {Γ} {A ↠ B} (ƛ .A ⇒ M) rewrite idₛ♯≡idₛ Γ A | subst-idₛ M = refl
 subst-idₛ (M₁ ∙ M₂) rewrite subst-idₛ M₁ | subst-idₛ M₂ = refl
-subst-idₛ `Z = refl
-subst-idₛ (`S M) rewrite subst-idₛ M = refl
+subst-idₛ Z = refl
+subst-idₛ (S M) rewrite subst-idₛ M = refl
 subst-idₛ {Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-idₛ M
                                            | subst-idₛ M₁
                                            | idₛ♯≡idₛ Γ `ℕ
@@ -47,8 +48,8 @@ _∘ₛ_ : ∀ {Γ Δ Θ} → Subst Δ Θ → Subst Γ Δ → Subst Γ Θ
   helper ρ (` x) A = refl
   helper ρ (ƛ C ⇒ M) A = Eq.cong (ƛ C ⇒_) {!!}
   helper ρ (M₁ ∙ M₂) A rewrite helper ρ M₁ A | helper ρ M₂ A = refl
-  helper ρ `Z A = refl
-  helper ρ (`S M) A rewrite helper ρ M A = refl
+  helper ρ Z A = refl
+  helper ρ (S M) A rewrite helper ρ M A = refl
   helper ρ case M [Z⇒ M₁ |S⇒ M₂ ] A rewrite helper ρ M A
                                           | helper ρ M₁ A
                                           = Eq.cong (case subst _ (rename _ M) [Z⇒ _ |S⇒_]) {!!}
@@ -63,8 +64,8 @@ subst-∘ₛ : ∀ {Γ Δ Θ A} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (M : Θ �
 subst-∘ₛ ρ σ (` x) = refl
 subst-∘ₛ ρ σ (ƛ A ⇒ M) rewrite ⋆-distr-∘ₛ ρ σ A | subst-∘ₛ (ρ ♯) (σ ♯) M = refl
 subst-∘ₛ ρ σ (M₁ ∙ M₂) rewrite subst-∘ₛ ρ σ M₁ | subst-∘ₛ ρ σ M₂ = refl
-subst-∘ₛ ρ σ `Z = refl
-subst-∘ₛ ρ σ (`S M) rewrite subst-∘ₛ ρ σ M = refl
+subst-∘ₛ ρ σ Z = refl
+subst-∘ₛ ρ σ (S M) rewrite subst-∘ₛ ρ σ M = refl
 subst-∘ₛ ρ σ case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-∘ₛ ρ σ M
                                           | subst-∘ₛ ρ σ M₁
                                           | ⋆-distr-∘ₛ ρ σ `ℕ
