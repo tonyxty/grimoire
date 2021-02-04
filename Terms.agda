@@ -28,7 +28,7 @@ unify A B = decToMaybe (Type≟ A B)
 
 -- Contexts
 
-infixr 1 _,_
+infixl 1 _,_
 data Context : Set where
   ∅ : Context
   _,_ : Context → Type → Context
