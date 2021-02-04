@@ -20,6 +20,8 @@ data Term : Set where
   Z : Term
   S_ : Term → Term
   case_[Z⇒_|S⇒_] : Term → Term → Term → Term
+  ⟪_,_⟫ : Term → Term → Term
+  case_[⟪,⟫⇒_] : Term → Term → Term
   μ_⇒_ : Type → Term → Term
 
 eraseVar : ∀ {Γ A} → Γ ∋ A → Var
@@ -46,6 +48,8 @@ erase (M₁ ∙ M₂) = erase M₁ ∙ erase M₂
 erase Z = Z
 erase (S M) = S erase M
 erase case M [Z⇒ M₁ |S⇒ M₂ ] = case erase M [Z⇒ erase M₁ |S⇒ erase M₂ ]
+erase ⟪ M₁ , M₂ ⟫ = ⟪ erase M₁ , erase M₂ ⟫
+erase case M [⟪,⟫⇒ N ] = case erase M [⟪,⟫⇒ erase N ]
 erase (μ_ {A = A} M) = μ A ⇒ erase M
 
 data CheckGoodResult (Γ : Context) (M : Term) : Set where
@@ -69,13 +73,23 @@ check' Γ (S M) = do
   ⟨ A , M , refl ⟩ ← check' Γ M
   refl ← unify A `ℕ
   just ⟨ `ℕ , S M , refl ⟩
-check' Γ case M [Z⇒ M₁ |S⇒ M₂ ] = do
+check' Γ case M [Z⇒ N₁ |S⇒ N₂ ] = do
   ⟨ A , M , refl ⟩ ← check' Γ M
   refl ← unify A `ℕ
-  ⟨ B , M₁ , refl ⟩ ← check' Γ M₁
-  ⟨ B' , M₂ , refl ⟩ ← check' (Γ , `ℕ) M₂
+  ⟨ B , N₁ , refl ⟩ ← check' Γ N₁
+  ⟨ B' , N₂ , refl ⟩ ← check' (Γ , `ℕ) N₂
   refl ← unify B B'
-  just ⟨ B , case M [Z⇒ M₁ |S⇒ M₂ ] , refl ⟩
+  just ⟨ B , case M [Z⇒ N₁ |S⇒ N₂ ] , refl ⟩
+check' Γ ⟪ M₁ , M₂ ⟫ = do
+  ⟨ A₁ , M₁ , refl ⟩ ← check' Γ M₁
+  ⟨ A₂ , M₂ , refl ⟩ ← check' Γ M₂
+  just ⟨ A₁ ⊗ A₂ , ⟪ M₁ , M₂ ⟫ , refl ⟩
+check' Γ case M [⟪,⟫⇒ N ] = do
+  ⟨ A₁ ⊗ A₂ , M , refl ⟩ ← check' Γ M
+                                   where _ → nothing
+  ⟨ B , N , refl ⟩ ← check' (Γ , A₁ , A₂) N
+  just ⟨ B , case M [⟪,⟫⇒ N ] , refl ⟩
+
 check' Γ (μ A ⇒ M) = do
   ⟨ A' , M , refl ⟩ ← check' (Γ , A) M
   refl ← unify A A'
@@ -112,6 +126,7 @@ completenessVar (tail x) rewrite completenessVar x = refl
 unifySelf : ∀ (A : Type) → Type≟ A A ≡ yes refl
 unifySelf `ℕ = refl
 unifySelf (A ↠ B) rewrite unifySelf A | unifySelf B = refl
+unifySelf (A ⊗ B) rewrite unifySelf A | unifySelf B = refl
 
 completeness : ∀ {Γ A} (M : Γ ⊢ A) → check' Γ (erase M) ≡ just ⟨ A , M , refl ⟩
 completeness (` x) rewrite completenessVar x = refl
@@ -122,6 +137,8 @@ completeness Z = refl
 completeness (S M) rewrite completeness M = refl
 completeness {A = A} case M [Z⇒ M₁ |S⇒ M₂ ]
   rewrite completeness M | completeness M₁ | completeness M₂ | unifySelf A = refl
+completeness ⟪ M₁ , M₂ ⟫ rewrite completeness M₁ | completeness M₂ = refl
+completeness case M [⟪,⟫⇒ N ] rewrite completeness M | completeness N = refl
 completeness {A = A} (μ M) rewrite completeness M | unifySelf A = refl
 
 data CheckResult (Γ : Context) (M : Term) : Set where

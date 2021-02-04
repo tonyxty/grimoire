@@ -10,15 +10,25 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 -- Types
 
 infixr 2 _↠_
+infixl 3 _⊗_
 data Type : Set where
   `ℕ : Type
   _↠_ : Type → Type → Type
+  _⊗_ : Type → Type → Type
 
 Type≟ : ∀ (A B : Type) → Dec (A ≡ B)
 Type≟ `ℕ `ℕ = yes refl
-Type≟ `ℕ (B ↠ B₁) = no (λ ())
-Type≟ (A₁ ↠ A₂) `ℕ = no (λ ())
+Type≟ `ℕ (_ ↠ _) = no (λ ())
+Type≟ `ℕ (_ ⊗ _) = no (λ ())
+Type≟ (_ ↠ _) `ℕ = no (λ ())
 Type≟ (A₁ ↠ A₂) (B₁ ↠ B₂) with Type≟ A₁ B₁ | Type≟ A₂ B₂
+...                          | yes refl    | yes refl = yes refl
+...                          | _           | no ≢₂ = no λ{refl → ≢₂ refl}
+...                          | no ≢₁       | _ = no λ{refl → ≢₁ refl}
+Type≟ (_ ↠ _) (_ ⊗ _) = no (λ ())
+Type≟ (_ ⊗ _) `ℕ = no (λ ())
+Type≟ (_ ⊗ _) (_ ↠ _) = no (λ ())
+Type≟ (A₁ ⊗ A₂) (B₁ ⊗ B₂) with Type≟ A₁ B₁ | Type≟ A₂ B₂
 ...                          | yes refl    | yes refl = yes refl
 ...                          | _           | no ≢₂ = no λ{refl → ≢₂ refl}
 ...                          | no ≢₁       | _ = no λ{refl → ≢₁ refl}
@@ -59,12 +69,19 @@ infixl 3 _∙_
 infix 4 S_
 infix 2 μ_
 data _⊢_ : Context → Type → Set where
+  -- variable reference
   `_ : ∀ {Γ A} → Γ ∋ A → Γ ⊢ A
+  -- ↠
   ƛ_⇒_ : ∀ {Γ B} (A : Type) → Γ , A ⊢ B → Γ ⊢ A ↠ B
   _∙_ : ∀ {Γ A B} → Γ ⊢ A ↠ B → Γ ⊢ A → Γ ⊢ B
+  -- `ℕ
   Z : ∀ {Γ} → Γ ⊢ `ℕ
   S_ : ∀ {Γ} → Γ ⊢ `ℕ → Γ ⊢ `ℕ
   case_[Z⇒_|S⇒_] : ∀ {Γ A} → Γ ⊢ `ℕ → Γ ⊢ A → Γ , `ℕ ⊢ A → Γ ⊢ A
+  -- ⊗
+  ⟪_,_⟫ : ∀ {Γ A₁ A₂} → Γ ⊢ A₁ → Γ ⊢ A₂ → Γ ⊢ A₁ ⊗ A₂
+  case_[⟪,⟫⇒_] : ∀ {Γ A₁ A₂ B} → Γ ⊢ A₁ ⊗ A₂ → Γ , A₁ , A₂ ⊢ B → Γ ⊢ B
+  -- fixpoint
   μ_ : ∀ {Γ A} → Γ , A ⊢ A → Γ ⊢ A
   -- Note that μ without termination check breaks soundness
 
@@ -94,6 +111,8 @@ rename ρ (M₁ ∙ M₂) = rename ρ M₁ ∙ rename ρ M₂
 rename ρ Z = Z
 rename ρ (S M) = S rename ρ M
 rename ρ case M [Z⇒ N₁ |S⇒ N₂ ] = case rename ρ M [Z⇒ rename ρ N₁ |S⇒ rename (ext ρ) N₂ ]
+rename ρ ⟪ M₁ , M₂ ⟫ = ⟪ rename ρ M₁ , rename ρ M₂ ⟫
+rename ρ case M [⟪,⟫⇒ N ] = case rename ρ M [⟪,⟫⇒ rename (ext (ext ρ)) N ]
 rename ρ (μ M) = μ rename (ext ρ) M
 
 Subst : Context → Context → Set
@@ -120,6 +139,8 @@ subst σ (M₁ ∙ M₂) = subst σ M₁ ∙ subst σ M₂
 subst σ Z = Z
 subst σ (S M) = S subst σ M
 subst σ case M [Z⇒ N₁ |S⇒ N₂ ] = case subst σ M [Z⇒ subst σ N₁ |S⇒ subst (σ ♯) N₂ ]
+subst σ ⟪ M₁ , M₂ ⟫ = ⟪ subst σ M₁ , subst σ M₂ ⟫
+subst σ case M [⟪,⟫⇒ N ] = case subst σ M [⟪,⟫⇒ subst (σ ♯ ♯) N ]
 subst σ (μ M) = μ subst (σ ♯) M
 
 _[_] : ∀ {Γ A B} → Γ , A ⊢ B → Γ ⊢ A → Γ ⊢ B
@@ -138,6 +159,9 @@ _[_] M N = subst (extTerm N) M
 
 `plus : ∀ {Γ} → Γ ⊢ `ℕ ↠ `ℕ ↠ `ℕ
 `plus = μ (ƛ `ℕ ⇒ ƛ `ℕ ⇒
-           case # 1
-           [Z⇒ # 0
-           |S⇒ S (# 3 ∙ # 0 ∙ # 1) ])
+             case # 1
+             [Z⇒ # 0
+             |S⇒ S (# 3 ∙ # 0 ∙ # 1) ])
+
+`proj₁ : ∀ {Γ A B} → Γ ⊢ A ⊗ B ↠ A
+`proj₁ = ƛ _ ⇒ case # 0 [⟪,⟫⇒ # 1 ]
