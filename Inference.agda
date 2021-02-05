@@ -36,6 +36,8 @@ data Term↑ where
   Z : Term↑
   S_ : Term↑ → Term↑
   case_[Z⇒_|S⇒_] : Term↑ → Term↑ → Term↑ → Term↑
+  ⟪_,_⟫ : Term↑ → Term↑ → Term↑
+  case_[⟪,⟫⇒_] : Term↓ → Term↑ → Term↑
   μ_ : Term↑ → Term↑
   _↑ : Term↓ → Term↑
 
@@ -45,6 +47,9 @@ private
 
   `plus' : Term↓
   `plus' = μ ƛ ƛ case ` 1 ↑ [Z⇒ ` 0 ↑ |S⇒ S (` 3 ∙ (` 0 ↑) ∙ (` 1 ↑) ↑)] ↓ `ℕ ↠ `ℕ ↠ `ℕ
+
+  `proj₁' : ∀ (A₁ A₂ : Type) → Term↓
+  `proj₁' A₁ A₂ = ƛ case ` 0 [⟪,⟫⇒ ` 1 ↑ ] ↓ A₁ ⊗ A₂ ↠ A₁
 
 checkVar : ∀ (Γ : Context) (x : ℕ) → Maybe (∃[ A ] (Γ ∋ A))
 checkVar ∅ x = nothing
@@ -61,7 +66,7 @@ synthesize Γ (` x) = do
   just ⟨ A , ` ∋ ⟩
 synthesize Γ (M₁ ∙ M₂) = do
   ⟨ A ↠ B , M₁ ⟩ ← synthesize Γ M₁
-                 where _ → nothing
+                   where _ → nothing
   M₂ ← inherit Γ A M₂
   just ⟨ B , M₁ ∙ M₂ ⟩
 synthesize Γ (M ↓ A) = do
@@ -83,6 +88,16 @@ inherit Γ A case M [Z⇒ M₁ |S⇒ M₂ ] = do
   M₁ ← inherit Γ A M₁
   M₂ ← inherit (Γ , `ℕ) A M₂
   just (case M [Z⇒ M₁ |S⇒ M₂ ])
+inherit Γ (A₁ ⊗ A₂) ⟪ M₁ , M₂ ⟫ = do
+  M₁ ← inherit Γ A₁ M₁
+  M₂ ← inherit Γ A₂ M₂
+  just ⟪ M₁ , M₂ ⟫
+inherit Γ _ ⟪ M₁ , M₂ ⟫ = nothing
+inherit Γ A case M [⟪,⟫⇒ N ] = do
+  ⟨ A₁ ⊗ A₂ , M ⟩ ← synthesize Γ M
+                    where _ → nothing
+  N ← inherit (Γ , A₁ , A₂) A N
+  just case M [⟪,⟫⇒ N ]
 inherit Γ A (μ M) = do
   M ← inherit (Γ , A) A M
   just (μ M)
@@ -100,3 +115,6 @@ private
 
   _ : result (eval 20 (`plus⁺ ∙ `two ∙ `two)) ≡ just ⌜ 4 ⌝
   _ = refl
+
+  `proj₁⁺ : ∅ ⊢ (`ℕ ↠ `ℕ) ⊗ `ℕ ↠ (`ℕ ↠ `ℕ)
+  `proj₁⁺ = proj₂ (from-just (synthesize ∅ (`proj₁' (`ℕ ↠ `ℕ) `ℕ)))
