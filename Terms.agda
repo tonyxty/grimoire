@@ -105,6 +105,7 @@ _⋆_ : ∀ {Γ Δ} (σ : Subst Γ Δ) (A : Type) → Subst (Γ , A) (Δ , A)
 (σ ⋆ _) _ (tail x) = rename tail (σ _ x)
 
 -- implicit argument version
+infix 9 _♯
 _♯ : ∀ {Γ Δ A} → Subst Γ Δ → Subst (Γ , A) (Δ , A)
 _♯ {A = A} σ = σ ⋆ A
 
