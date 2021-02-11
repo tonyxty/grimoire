@@ -1,4 +1,4 @@
--- module Reduction where
+module Reduction where
 
 import Terms
 import Data.List

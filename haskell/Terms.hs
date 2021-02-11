@@ -2,7 +2,7 @@ module Terms where
 
 data Type = Nat | Arrow !Type !Type deriving (Eq)
 type Context = [Type]
-type Var = Word
+type Var = Int
 
 data Term = Ref !Var
           | Lam Type Term
