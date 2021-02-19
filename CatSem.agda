@@ -11,9 +11,15 @@ import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; sym; cong)
 open Eq.≡-Reasoning
 
-postulate
-  extensionality' : ∀ {A : Set} {B : A → Set} {f g : ∀ {x} → B x} → (∀ (x : A) → f {x} ≡ g {x}) → _≡_ {A = ∀ {x} → B x} f g
-  extensionality : ∀ {A : Set} {B : A → Set} {f g : ∀ (x : A) → B x} → (∀ (x : A) → f x ≡ g x) → f ≡ g
+module _ {A : Set} {B : A → Set} where
+  private F = ∀ {x} → B x
+  postulate extensionality' : {f g : F} → (∀ (x : A) → f {x} ≡ g {x}) → _≡_ {A = F} f g
+
+  extensionality : {f g : ∀ (x : A) → B x} → (∀ (x : A) → f x ≡ g x) → f ≡ g
+  extensionality {f = f} {g = g} p = lemma (g _) (extensionality' p)
+    where -- hacking the η-law in Agda tycker
+    lemma : (g′ : F) → (λ {x} → f x) ≡ g′ → f ≡ (λ x → g′ {x})
+    lemma _ p rewrite sym p = refl
 
 rename-≡ : ∀ {Γ Δ} {ρ σ : Rename Γ Δ} → (∀ {A} (x : Δ ∋ A) → ρ x ≡ σ x) → _≡_ {A = Rename Γ Δ} ρ σ
 rename-≡ {ρ = ρ} {σ = σ} pt≡ = extensionality' (λ A' → extensionality (pt≡ {A'}))
