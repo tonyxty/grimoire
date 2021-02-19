@@ -37,6 +37,9 @@ rename-id (M₁ ∙ M₂) rewrite rename-id M₁ | rename-id M₂ = refl
 rename-id Z = refl
 rename-id (S M) rewrite rename-id M = refl
 rename-id {Γ = Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite rename-id M | rename-id M₁ | ext-id≡id Γ `ℕ | rename-id M₂ = refl
+rename-id ⟪ M₁ , M₂ ⟫ rewrite rename-id M₁ | rename-id M₂ = refl
+rename-id {Γ = Γ} (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M')
+  rewrite rename-id M | ext-id≡id Γ A₁ | ext-id≡id (Γ , A₁) A₂ | rename-id M' = refl
 rename-id {Γ} {A} (μ M) rewrite ext-id≡id Γ A | rename-id M = refl
 
 ext-∘ : ∀ {Γ Δ Θ} (ρ : Rename Γ Δ) (σ : Rename Δ Θ) (A : Type) →
@@ -51,6 +54,10 @@ rename-∘ ρ σ Z = refl
 rename-∘ ρ σ (S M) rewrite rename-∘ ρ σ M = refl
 rename-∘ ρ σ case M [Z⇒ M₁ |S⇒ M₂ ] rewrite
   rename-∘ ρ σ M | rename-∘ ρ σ M₁ | ext-∘ ρ σ `ℕ | rename-∘ (ext ρ) (ext σ) M₂ = refl
+rename-∘ ρ σ ⟪ M₁ , M₂ ⟫ rewrite rename-∘ ρ σ M₁ | rename-∘ ρ σ M₂ = refl
+rename-∘ ρ σ (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M')
+  rewrite rename-∘ ρ σ M | ext-∘ ρ σ A₁ | ext-∘ (ext {A = A₁} ρ) (ext σ) A₂ | rename-∘ (ext (ext ρ)) (ext (ext σ)) M'
+  = refl
 rename-∘ {A = A} ρ σ (μ M) rewrite ext-∘ ρ σ A | rename-∘ (ext ρ) (ext σ) M = refl
 
 subst-≡ : ∀ {Γ Δ} {ρ σ : Subst Γ Δ} → (∀ {A} (∋A : Δ ∋ A) → ρ _ ∋A ≡ σ _ ∋A) → ρ ≡ σ
@@ -72,9 +79,14 @@ subst-idₛ (M₁ ∙ M₂) rewrite subst-idₛ M₁ | subst-idₛ M₂ = refl
 subst-idₛ Z = refl
 subst-idₛ (S M) rewrite subst-idₛ M = refl
 subst-idₛ {Γ = Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-idₛ M
-                                           | subst-idₛ M₁
-                                           | idₛ♯≡idₛ Γ `ℕ
-                                           | subst-idₛ M₂ = refl
+                                               | subst-idₛ M₁
+                                               | idₛ♯≡idₛ Γ `ℕ
+                                               | subst-idₛ M₂ = refl
+subst-idₛ ⟪ M₁ , M₂ ⟫ rewrite subst-idₛ M₁ | subst-idₛ M₂ = refl
+subst-idₛ {Γ = Γ} (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M') rewrite subst-idₛ M
+                                                                | idₛ♯≡idₛ Γ A₁
+                                                                | idₛ♯≡idₛ (Γ , A₁) A₂
+                                                                | subst-idₛ M' = refl
 subst-idₛ {Γ} {A} (μ M) rewrite idₛ♯≡idₛ Γ A | subst-idₛ M = refl
 
 infixr 9 _∘ₛ_
@@ -154,6 +166,8 @@ ext-subst-comm ρ (M₁ ∙ M₂) A rewrite ext-subst-comm ρ M₁ A | ext-subst
 ext-subst-comm ρ Z A = refl
 ext-subst-comm ρ (S M) A rewrite ext-subst-comm ρ M A = refl
 ext-subst-comm ρ case M [Z⇒ M₁ |S⇒ M₂ ] A rewrite ext-subst-comm ρ M A | ext-subst-comm ρ M₁ A | ext-subst-comm ρ M₂ A = refl
+ext-subst-comm ρ ⟪ M₁ , M₂ ⟫ A rewrite ext-subst-comm ρ M₁ A | ext-subst-comm ρ M₂ A = refl
+ext-subst-comm ρ case M [⟪,⟫⇒ M' ] A rewrite ext-subst-comm ρ M A | ext-subst-comm ρ M' A = refl
 ext-subst-comm ρ (μ M) A rewrite ext-subst-comm ρ M A = refl
 
 ⋆-distr-∘ₛ : ∀ {Γ Δ Θ} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (A : Type) → (σ ∘ₛ ρ) ⋆ A ≡ (σ ⋆ A) ∘ₛ (ρ ⋆ A)
@@ -177,6 +191,11 @@ subst-∘ₛ ρ σ case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-∘ₛ ρ σ M
                                           | subst-∘ₛ ρ σ M₁
                                           | ⋆-distr-∘ₛ ρ σ `ℕ
                                           | subst-∘ₛ (ρ ♯) (σ ♯) M₂ = refl
+subst-∘ₛ ρ σ ⟪ M₁ , M₂ ⟫ rewrite subst-∘ₛ ρ σ M₁ | subst-∘ₛ ρ σ M₂ = refl
+subst-∘ₛ ρ σ (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M') rewrite subst-∘ₛ ρ σ M
+                                                           | ⋆-distr-∘ₛ ρ σ A₁
+                                                           | ⋆-distr-∘ₛ (ρ ⋆ A₁) (σ ⋆ A₁) A₂
+                                                           | subst-∘ₛ (ρ ♯ ♯) (σ ♯ ♯) M' = refl
 subst-∘ₛ {A = A} ρ σ (μ M) rewrite ⋆-distr-∘ₛ ρ σ A | subst-∘ₛ (ρ ♯) (σ ♯) M = refl
 
 ∘ₛ-identityʳ : ∀ {Γ Δ} {ρ : Subst Γ Δ} → ρ ∘ₛ idₛ ≡ ρ
