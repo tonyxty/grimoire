@@ -28,6 +28,15 @@ step (CaseNat m n1 n2) = case step m of
     Right Zero -> Left n1
     Right (Suc v) -> Left (v `substInto` n2)
     _ -> undefined
+step (Pair m1 m2) = case step m1 of
+    Left m1' -> Left (Pair m1' m2)
+    Right v1 -> case step m2 of
+        Left m2' -> Left (Pair v1 m2')
+        Right v2 -> Right (Pair v1 v2)
+step (CaseProduct m n) = case step m of
+    Left m' -> Left (CaseProduct m' n)
+    Right (Pair v1 v2) -> Left (v2 `substInto` (v1 `substInto` n))
+    _ -> undefined
 step m@(Mu m') = Left (m `substInto` m')
 step _ = undefined
 

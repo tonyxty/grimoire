@@ -1,6 +1,7 @@
 module Terms where
 
-data Type = Nat | Arrow !Type !Type deriving (Eq)
+data Type = Nat | Arrow !Type !Type | Product !Type !Type
+    deriving (Eq)
 type Context = [Type]
 type Var = Int
 
@@ -10,6 +11,8 @@ data Term = Ref !Var
           | Zero
           | Suc Term
           | CaseNat Term Term Term
+          | Pair Term Term
+          | CaseProduct Term Term
           | Mu Term
 
 -- Helpers
@@ -18,6 +21,8 @@ prettyPrintType :: Type -> String
 prettyPrintType Nat = "ℕ"
 prettyPrintType (Arrow a b) =
     '(' : prettyPrintType a ++ " → " ++ prettyPrintType b ++ ")"
+prettyPrintType (Product a b) =
+    '(' : prettyPrintType a ++ ") × (" ++ prettyPrintType b ++ ")"
 
 prettyPrintTerm :: Int -> Term -> String
 prettyPrintTerm _ (Ref x) = '#' : show x
@@ -31,6 +36,11 @@ prettyPrintTerm i (CaseNat m n1 n2) =
     "case " ++ prettyPrintTerm i m ++ '\n' :
         replicate i ' ' ++ "[ Z ⇒ " ++ prettyPrintTerm (2 + i) n1 ++ " ]\n" ++
         replicate i ' ' ++ "[ S ⇒ " ++ prettyPrintTerm (2 + i) n2 ++ " ]"
+prettyPrintTerm i (Pair m1 m2) =
+    '(' : prettyPrintTerm i m1 ++ ", " ++ prettyPrintTerm i m2 ++ ")"
+prettyPrintTerm i (CaseProduct m n) =
+    "case " ++ prettyPrintTerm i m ++ '\n' :
+        replicate i ' ' ++ "[ ( , ) ⇒ " ++ prettyPrintTerm (2 + i) n ++ " ]"
 prettyPrintTerm i (Mu m) = "μ " ++ prettyPrintTerm i m
 
 quoteNat :: Word -> Term
@@ -51,8 +61,10 @@ rename f (Lam a m) = Lam a (rename (ext f) m)
 rename f (App m1 m2) = App (rename f m1) (rename f m2)
 rename _ Zero = Zero
 rename f (Suc m) = Suc (rename f m)
-rename f (CaseNat m n1 n2) = CaseNat (rename f m) (rename f n1)
-    (rename (ext f) n2)
+rename f (CaseNat m n1 n2) =
+    CaseNat (rename f m) (rename f n1) (rename (ext f) n2)
+rename f (Pair m1 m2) = Pair (rename f m1) (rename f m2)
+rename f (CaseProduct m n) = CaseProduct (rename f m) (rename (ext (ext f)) n)
 rename f (Mu m) = Mu (rename (ext f) m)
 
 type Subst = Var -> Term
@@ -71,8 +83,11 @@ subst s (Lam a m) = Lam a (subst (extSubst s) m)
 subst s (App m1 m2) = App (subst s m1) (subst s m2)
 subst _ Zero = Zero
 subst s (Suc m) = Suc (subst s m)
-subst s (CaseNat m n1 n2) = CaseNat (subst s m) (subst s n1)
-    (subst (extSubst s) n2)
+subst s (CaseNat m n1 n2) =
+    CaseNat (subst s m) (subst s n1) (subst (extSubst s) n2)
+subst s (Pair m1 m2) = Pair (subst s m1) (subst s m2)
+subst s (CaseProduct m n) =
+    CaseProduct (subst s m) (subst (extSubst (extSubst s)) n)
 subst s (Mu m) = Mu (subst (extSubst s) m)
 
 substInto :: Term -> Term -> Term

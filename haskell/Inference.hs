@@ -1,10 +1,10 @@
 {-# LANGUAGE FlexibleInstances #-}
--- module Inference where
+module Inference where
 
 import Terms
 import Safe
 import Data.Either.Combinators
-import Control.Monad.Fail
+import Control.Monad.Fail ()
 
 data TermS = RefS Var
            | AppS TermS TermI
@@ -14,6 +14,8 @@ data TermI = LamI TermI
            | ZeroI
            | SucI TermI
            | CaseNatI TermI TermI TermI
+           | PairI TermI TermI
+           | CaseProductI TermS TermI
            | MuI TermI
            | Inherit TermS
 
@@ -51,6 +53,14 @@ inherit g a (CaseNatI m n1 n2) = do
     n1' <- inherit g a n1
     n2' <- inherit (Nat : g) a n2
     return (CaseNat m' n1' n2')
+inherit g (Product a1 a2) (PairI m1 m2) = do
+    m1' <- inherit g a1 m1
+    m2' <- inherit g a2 m2
+    return (Pair m1' m2')
+inherit g a (CaseProductI m n) = do
+    (Product a1 a2, m') <- synthesize g m
+    n' <- inherit (a2 : a1 : g) a n
+    return (CaseProduct m' n')
 inherit g a (MuI m) = do
     m' <- inherit (a : g) a m
     return (Mu m')
