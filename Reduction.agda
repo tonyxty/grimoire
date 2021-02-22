@@ -6,7 +6,7 @@ open import Data.Empty
 open import Data.Maybe
 open import Data.Nat
 open import Relation.Nullary
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong)
 
 -- Reduction
 
@@ -35,10 +35,19 @@ data _—→_ : ∀ {Γ A} → Γ ⊢ A → Γ ⊢ A → Set where
 infixr 0 _—↠_
 infix 1 _∎
 infixr 0 _—→⟨_⟩_
+infixr 0 _—≡→⟨_⟩_
+infixr 0 _—↠⟨_⟩_
 
 data _—↠_ {Γ A} : Γ ⊢ A → Γ ⊢ A → Set where
   _∎ : ∀ (M : Γ ⊢ A) → M —↠ M
-  _—→⟨_⟩_ : ∀ (L : Γ ⊢ A) {M N} → L —→ M → M —↠ N → L —↠ N
+  _—→⟨_⟩_ : ∀ {M N} (L : Γ ⊢ A) → L —→ M → M —↠ N → L —↠ N
+
+_—≡→⟨_⟩_ : ∀ {Γ A M N} (L : Γ ⊢ A) → L ≡ M → M —↠ N → L —↠ N
+_ —≡→⟨ refl ⟩ M—↠N = M—↠N
+
+_—↠⟨_⟩_ : ∀ {Γ A M N} (L : Γ ⊢ A) → L —↠ M → M —↠ N → L —↠ N
+L —↠⟨ _ ∎ ⟩ M—↠N = M—↠N
+L —↠⟨ _ —→⟨ L—→L' ⟩ L'—↠M ⟩ M—↠N = L —→⟨ L—→L' ⟩ _ —↠⟨ L'—↠M ⟩ M—↠N
 
 -- Example of reduction
 
@@ -153,3 +162,46 @@ _ = refl
 
 _ : result (eval 3 (`proj₁ ∙ ⟪ `two , `two ⟫)) ≡ just `two
 _ = refl
+
+-- Property of `plus, formalized as a metatheorem
+V-⌜_⌝ : ∀ {Γ} (n : ℕ) → Value {Γ} ⌜ n ⌝
+V-⌜ zero ⌝ = V-Z
+V-⌜ suc n ⌝ = V-S V-⌜ n ⌝
+
+rename-⌜_⌝ : ∀ {A} {M : ∅ ⊢ A} (n : ℕ) → rename tail ⌜ n ⌝ [ M ] ≡ ⌜ n ⌝
+rename-⌜ zero ⌝ = refl
+rename-⌜ suc n ⌝ = cong S_ rename-⌜ n ⌝
+
+ξ-S' : ∀ {Γ} {M M' : Γ ⊢ `ℕ} → M —↠ M' → S M —↠ S M'
+ξ-S' {M = M} (_ ∎) = S M ∎
+ξ-S' {M = M} (_ —→⟨ M—→L ⟩ L—↠M') = S M —→⟨ ξ-S M—→L ⟩ ξ-S' L—↠M'
+
+`plus-+ : ∀ (m n : ℕ) → `plus {∅} ∙ ⌜ m ⌝ ∙ ⌜ n ⌝ —↠ ⌜ m + n ⌝
+`plus-+ zero n =
+    `plus ∙ ⌜ zero ⌝ ∙ ⌜ n ⌝
+  —→⟨ ξ-∙₁ (ξ-∙₁ β-μ) ⟩
+    (ƛ `ℕ ⇒ ƛ `ℕ ⇒ case # 1 [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ Z ∙ ⌜ n ⌝
+  —→⟨ ξ-∙₁ (β-ƛ V-Z) ⟩
+    (ƛ `ℕ ⇒ case Z [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ ⌜ n ⌝
+  —→⟨ β-ƛ V-⌜ n ⌝ ⟩
+    case Z [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]
+  —→⟨ β-Z ⟩
+    ⌜ n ⌝
+  ∎
+`plus-+ (suc m) n =
+    `plus ∙ ⌜ suc m ⌝ ∙ ⌜ n ⌝
+  —→⟨ ξ-∙₁ (ξ-∙₁ β-μ) ⟩
+    (ƛ `ℕ ⇒ ƛ `ℕ ⇒ case # 1 [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ ⌜ suc m ⌝ ∙ ⌜ n ⌝
+  —→⟨ ξ-∙₁ (β-ƛ V-⌜ suc m ⌝ ) ⟩
+    (ƛ `ℕ ⇒ case S (rename tail ⌜ m ⌝) [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ ⌜ n ⌝
+  —→⟨ β-ƛ V-⌜ n ⌝ ⟩
+    case S ((rename tail ⌜ m ⌝) [ ⌜ n ⌝ ]) [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]
+  —≡→⟨ cong (λ M → case S M [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]) (rename-⌜ m ⌝) ⟩
+    case S ⌜ m ⌝ [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]
+  —→⟨ β-S V-⌜ m ⌝ ⟩
+    S (`plus ∙ ⌜ m ⌝ ∙ rename tail ⌜ n ⌝ [ ⌜ m ⌝ ])
+  —≡→⟨ cong (λ M → S (`plus ∙ ⌜ m ⌝ ∙ M)) rename-⌜ n ⌝ ⟩
+    S (`plus ∙ ⌜ m ⌝ ∙ ⌜ n ⌝)
+  —↠⟨ ξ-S' (`plus-+ m n) ⟩
+    ⌜ suc (m + n) ⌝
+  ∎
