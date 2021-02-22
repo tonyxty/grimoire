@@ -2,6 +2,7 @@
 module Reduction where
 
 open import Terms
+open import Data.Empty
 open import Data.Maybe
 open import Data.Nat
 open import Relation.Nullary
@@ -97,6 +98,31 @@ progress case M [⟪,⟫⇒ M' ] with progress M
 ...                           | step M—→N = step (ξ-case-⊗ M—→N)
 ...                           | value (V-⟪,⟫ VM₁ VM₂) = step (β-⟪,⟫ VM₁ VM₂)
 progress (μ M) = step β-μ
+
+-- we really need a way to automate this!
+deterministic : ∀ {Γ A} {M M' M'' : Γ ⊢ A} → (M —→ M') → (M —→ M'') → M' ≡ M''
+deterministic (ξ-∙₁ L—→L') (ξ-∙₁ L—→L'') rewrite deterministic L—→L' L—→L'' = refl
+deterministic (ξ-∙₁ L—→L') (ξ-∙₂ VL _) = ⊥-elim (V¬—→ VL L—→L')
+deterministic (ξ-∙₂ VL _) (ξ-∙₁ L—→L'') = ⊥-elim (V¬—→ VL L—→L'')
+deterministic (ξ-∙₂ _ L—→L') (ξ-∙₂ _ L—→L'') rewrite deterministic L—→L' L—→L'' = refl
+deterministic (ξ-∙₂ _ L—→L') (β-ƛ VL) = ⊥-elim (V¬—→ VL L—→L')
+deterministic (β-ƛ VL) (ξ-∙₂ _ L—→L'') = ⊥-elim (V¬—→ VL L—→L'')
+deterministic (β-ƛ _) (β-ƛ _) = refl
+deterministic (ξ-S L—→L') (ξ-S L—→L'') rewrite deterministic L—→L' L—→L'' = refl
+deterministic (ξ-case-`ℕ L—→L') (ξ-case-`ℕ L—→L'') rewrite deterministic L—→L' L—→L'' = refl
+deterministic (ξ-case-`ℕ L—→L') (β-S VL) = ⊥-elim (V¬—→ (V-S VL) L—→L')
+deterministic β-Z β-Z = refl
+deterministic (β-S VL) (ξ-case-`ℕ L—→L'') = ⊥-elim (V¬—→ (V-S VL) L—→L'')
+deterministic (β-S _) (β-S _) = refl
+deterministic (ξ-⟪,⟫₁ L—→L') (ξ-⟪,⟫₁ L—→L'') rewrite deterministic L—→L' L—→L'' = refl
+deterministic (ξ-⟪,⟫₁ L—→L') (ξ-⟪,⟫₂ VL _) = ⊥-elim (V¬—→ VL L—→L')
+deterministic (ξ-⟪,⟫₂ VL _) (ξ-⟪,⟫₁ L—→L'') = ⊥-elim (V¬—→ VL L—→L'')
+deterministic (ξ-⟪,⟫₂ _ L—→L') (ξ-⟪,⟫₂ _ L—→L'') rewrite deterministic L—→L' L—→L'' = refl
+deterministic (ξ-case-⊗ L—→L') (ξ-case-⊗ L—→L'') rewrite deterministic L—→L' L—→L'' = refl
+deterministic (ξ-case-⊗ L—→L') (β-⟪,⟫ VL₁ VL₂) = ⊥-elim (V¬—→ (V-⟪,⟫ VL₁ VL₂) L—→L')
+deterministic (β-⟪,⟫ VL₁ VL₂) (ξ-case-⊗ L—→L'') = ⊥-elim (V¬—→ (V-⟪,⟫ VL₁ VL₂) L—→L'')
+deterministic (β-⟪,⟫ _ _) (β-⟪,⟫ _ _) = refl
+deterministic β-μ β-μ = refl
 
 data Steps {A} (M : ∅ ⊢ A) : Set where
   more : ∀ {N} → M —↠ N → Steps M
