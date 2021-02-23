@@ -43,6 +43,7 @@ data Context : Set where
   ∅ : Context
   _,_ : Context → Type → Context
 
+-- intrinsically scoped & typed de Brujin index.  this type is called "_[_]=_" in Data.Vec
 infix 0 _∋_
 data _∋_ : Context → Type → Set where
   head : ∀ {Γ A} → Γ , A ∋ A
@@ -83,7 +84,7 @@ data _⊢_ : Context → Type → Set where
   case_[⟪,⟫⇒_] : ∀ {Γ A₁ A₂ B} → Γ ⊢ A₁ ⊗ A₂ → Γ , A₁ , A₂ ⊢ B → Γ ⊢ B
   -- fixpoint
   μ_ : ∀ {Γ A} → Γ , A ⊢ A → Γ ⊢ A
-  -- Note that μ without termination check breaks soundness
+  -- Note that μ without termination check breaks soundness (and confuses Agda C-c C-a)
 
 -- Helpers
 
@@ -115,36 +116,39 @@ rename ρ ⟪ M₁ , M₂ ⟫ = ⟪ rename ρ M₁ , rename ρ M₂ ⟫
 rename ρ case M [⟪,⟫⇒ N ] = case rename ρ M [⟪,⟫⇒ rename (ext (ext ρ)) N ]
 rename ρ (μ M) = μ rename (ext ρ) M
 
+_♯ : ∀ {Γ A B} → Γ ⊢ A → Γ , B ⊢ A
+M ♯ = rename tail M
+
 Subst : Context → Context → Set
-Subst Γ Δ = ∀ (A : Type) → Δ ∋ A → Γ ⊢ A
+Subst Γ Δ = ∀ {A} → Δ ∋ A → Γ ⊢ A
 
 infixl 10 _⋆_
 _⋆_ : ∀ {Γ Δ} (σ : Subst Γ Δ) (A : Type) → Subst (Γ , A) (Δ , A)
-(σ ⋆ _) _ head = ` head
-(σ ⋆ _) _ (tail x) = rename tail (σ _ x)
+(σ ⋆ _) head = ` head
+(σ ⋆ _) (tail x) = σ x ♯
 
 -- implicit argument version
-infix 9 _♯
-_♯ : ∀ {Γ Δ A} → Subst Γ Δ → Subst (Γ , A) (Δ , A)
-_♯ {A = A} σ = σ ⋆ A
+infix 9 _⋆
+_⋆ : ∀ {Γ Δ A} → Subst Γ Δ → Subst (Γ , A) (Δ , A)
+σ ⋆ = σ ⋆ _
 
-extTerm : ∀ {Γ A} → Γ ⊢ A → Subst Γ (Γ , A)
-extTerm M _ head = M
-extTerm M _ (tail ∋A) = ` ∋A
+extByTerm : ∀ {Γ A} → Γ ⊢ A → Subst Γ (Γ , A)
+extByTerm M head = M
+extByTerm M (tail x) = ` x
 
 subst : ∀ {Γ Δ A} → Subst Γ Δ → Δ ⊢ A → Γ ⊢ A
-subst σ (` x) = σ _ x
-subst σ (ƛ A ⇒ M) = ƛ A ⇒ (subst (σ ♯) M)
+subst σ (` x) = σ x
+subst σ (ƛ A ⇒ M) = ƛ A ⇒ (subst (σ ⋆) M)
 subst σ (M₁ ∙ M₂) = subst σ M₁ ∙ subst σ M₂
 subst σ Z = Z
 subst σ (S M) = S subst σ M
-subst σ case M [Z⇒ N₁ |S⇒ N₂ ] = case subst σ M [Z⇒ subst σ N₁ |S⇒ subst (σ ♯) N₂ ]
+subst σ case M [Z⇒ N₁ |S⇒ N₂ ] = case subst σ M [Z⇒ subst σ N₁ |S⇒ subst (σ ⋆) N₂ ]
 subst σ ⟪ M₁ , M₂ ⟫ = ⟪ subst σ M₁ , subst σ M₂ ⟫
-subst σ case M [⟪,⟫⇒ N ] = case subst σ M [⟪,⟫⇒ subst (σ ♯ ♯) N ]
-subst σ (μ M) = μ subst (σ ♯) M
+subst σ case M [⟪,⟫⇒ N ] = case subst σ M [⟪,⟫⇒ subst (σ ⋆ ⋆) N ]
+subst σ (μ M) = μ subst (σ ⋆) M
 
 _[_] : ∀ {Γ A B} → Γ , A ⊢ B → Γ ⊢ A → Γ ⊢ B
-_[_] M N = subst (extTerm N) M
+M [ N ] = subst (extByTerm N) M
 
 -- Examples
 

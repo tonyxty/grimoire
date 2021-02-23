@@ -29,7 +29,7 @@ data _—→_ : ∀ {Γ A} → Γ ⊢ A → Γ ⊢ A → Set where
   ξ-⟪,⟫₂ : ∀ {Γ A₁ A₂} {V₁ : Γ ⊢ A₁} {M₂ M₂' : Γ ⊢ A₂} → Value V₁ → M₂ —→ M₂' → ⟪ V₁ , M₂ ⟫ —→ ⟪ V₁ , M₂' ⟫
   ξ-case-⊗ : ∀ {Γ A₁ A₂ B} {M M' : Γ ⊢ A₁ ⊗ A₂} {N : Γ , A₁ , A₂ ⊢ B} → M —→ M' → case M [⟪,⟫⇒ N ] —→ case M' [⟪,⟫⇒ N ]
   β-⟪,⟫ : ∀ {Γ A₁ A₂ B} {V₁ : Γ ⊢ A₁} {V₂ : Γ ⊢ A₂} {N : Γ , A₁ , A₂ ⊢ B} → Value V₁ → Value V₂ →
-    case ⟪ V₁ , V₂ ⟫ [⟪,⟫⇒ N ] —→ N [ rename tail V₂ ] [ V₁ ]
+    case ⟪ V₁ , V₂ ⟫ [⟪,⟫⇒ N ] —→ N [ V₂ ♯ ] [ V₁ ]
   β-μ : ∀ {Γ A} {M : Γ , A ⊢ A} → μ M —→ M [ μ M ]
 
 infixr 0 _—↠_
@@ -168,7 +168,7 @@ V-⌜_⌝ : ∀ {Γ} (n : ℕ) → Value {Γ} ⌜ n ⌝
 V-⌜ zero ⌝ = V-Z
 V-⌜ suc n ⌝ = V-S V-⌜ n ⌝
 
-rename-⌜_⌝ : ∀ {A} {M : ∅ ⊢ A} (n : ℕ) → rename tail ⌜ n ⌝ [ M ] ≡ ⌜ n ⌝
+rename-⌜_⌝ : ∀ {A} {M : ∅ ⊢ A} (n : ℕ) → ⌜ n ⌝ ♯ [ M ] ≡ ⌜ n ⌝
 rename-⌜ zero ⌝ = refl
 rename-⌜ suc n ⌝ = cong S_ rename-⌜ n ⌝
 
@@ -184,7 +184,7 @@ rename-⌜ suc n ⌝ = cong S_ rename-⌜ n ⌝
   —→⟨ ξ-∙₁ (β-ƛ V-Z) ⟩
     (ƛ `ℕ ⇒ case Z [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ ⌜ n ⌝
   —→⟨ β-ƛ V-⌜ n ⌝ ⟩
-    case Z [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]
+    case Z [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ ⌜ n ⌝ ♯) ]
   —→⟨ β-Z ⟩
     ⌜ n ⌝
   ∎
@@ -193,13 +193,13 @@ rename-⌜ suc n ⌝ = cong S_ rename-⌜ n ⌝
   —→⟨ ξ-∙₁ (ξ-∙₁ β-μ) ⟩
     (ƛ `ℕ ⇒ ƛ `ℕ ⇒ case # 1 [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ ⌜ suc m ⌝ ∙ ⌜ n ⌝
   —→⟨ ξ-∙₁ (β-ƛ V-⌜ suc m ⌝ ) ⟩
-    (ƛ `ℕ ⇒ case S (rename tail ⌜ m ⌝) [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ ⌜ n ⌝
+    (ƛ `ℕ ⇒ case S ⌜ m ⌝ ♯ [Z⇒ # 0 |S⇒ S (`plus ∙ # 0 ∙ # 1) ]) ∙ ⌜ n ⌝
   —→⟨ β-ƛ V-⌜ n ⌝ ⟩
-    case S ((rename tail ⌜ m ⌝) [ ⌜ n ⌝ ]) [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]
-  —≡→⟨ cong (λ M → case S M [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]) (rename-⌜ m ⌝) ⟩
-    case S ⌜ m ⌝ [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ rename tail ⌜ n ⌝) ]
+    case S (⌜ m ⌝ ♯ [ ⌜ n ⌝ ]) [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ ⌜ n ⌝ ♯) ]
+  —≡→⟨ cong (λ M → case S M [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ ⌜ n ⌝ ♯) ]) (rename-⌜ m ⌝) ⟩
+    case S ⌜ m ⌝ [Z⇒ ⌜ n ⌝ |S⇒ S (`plus ∙ # 0 ∙ ⌜ n ⌝ ♯) ]
   —→⟨ β-S V-⌜ m ⌝ ⟩
-    S (`plus ∙ ⌜ m ⌝ ∙ rename tail ⌜ n ⌝ [ ⌜ m ⌝ ])
+    S (`plus ∙ ⌜ m ⌝ ∙ ⌜ n ⌝ ♯ [ ⌜ m ⌝ ])
   —≡→⟨ cong (λ M → S (`plus ∙ ⌜ m ⌝ ∙ M)) rename-⌜ n ⌝ ⟩
     S (`plus ∙ ⌜ m ⌝ ∙ ⌜ n ⌝)
   —↠⟨ ξ-S' (`plus-+ m n) ⟩
