@@ -134,6 +134,14 @@ liftʳ Γ (tail x) = tail (liftʳ Γ x)
 ...                        | inj₁ ⟨ x' , refl ⟩ = inj₁ ⟨ x' , refl ⟩
 ...                        | inj₂ ⟨ x' , refl ⟩ = inj₂ ⟨ tail x' , refl ⟩
 
+++-∋-liftˡ : ∀ {A Γ E} (x : Γ ∋ A) → ++-∋ Γ E (liftˡ E x) ≡ inj₁ ⟨ x , refl ⟩
+++-∋-liftˡ {E = ∅} x = refl
+++-∋-liftˡ {E = E , _} x rewrite ++-∋-liftˡ {E = E} x = refl
+
+++-∋-liftʳ : ∀ {A Γ E} (x : E ∋ A) → ++-∋ Γ E (liftʳ Γ x) ≡ inj₂ ⟨ x , refl ⟩
+++-∋-liftʳ head = refl
+++-∋-liftʳ {Γ = Γ} (tail x) rewrite ++-∋-liftʳ {Γ = Γ} x = refl
+
 exts : ∀ {Γ Δ} → Rename Γ Δ → ∀ (E : Context) → Rename (Γ ++ E) (Δ ++ E)
 exts ρ ∅ = ρ
 exts ρ (E , A) = ext (exts ρ E)
