@@ -22,15 +22,15 @@ Type≟ `ℕ (_ ↠ _) = no (λ ())
 Type≟ `ℕ (_ ⊗ _) = no (λ ())
 Type≟ (_ ↠ _) `ℕ = no (λ ())
 Type≟ (A₁ ↠ A₂) (B₁ ↠ B₂) with Type≟ A₁ B₁ | Type≟ A₂ B₂
-...                          | yes refl    | yes refl = yes refl
-...                          | _           | no ≢₂ = no λ{refl → ≢₂ refl}
+...                          | yes e       | yes refl rewrite e = yes refl
+...                          | yes _       | no ≢₂ = no λ{refl → ≢₂ refl}
 ...                          | no ≢₁       | _ = no λ{refl → ≢₁ refl}
 Type≟ (_ ↠ _) (_ ⊗ _) = no (λ ())
 Type≟ (_ ⊗ _) `ℕ = no (λ ())
 Type≟ (_ ⊗ _) (_ ↠ _) = no (λ ())
 Type≟ (A₁ ⊗ A₂) (B₁ ⊗ B₂) with Type≟ A₁ B₁ | Type≟ A₂ B₂
-...                          | yes refl    | yes refl = yes refl
-...                          | _           | no ≢₂ = no λ{refl → ≢₂ refl}
+...                          | yes e       | yes refl rewrite e = yes refl
+...                          | yes _       | no ≢₂ = no λ{refl → ≢₂ refl}
 ...                          | no ≢₁       | _ = no λ{refl → ≢₁ refl}
 
 unify : ∀ (A B : Type) → Maybe (A ≡ B)
@@ -84,7 +84,7 @@ data _⊢_ : Context → Type → Set where
   case_[⟪,⟫⇒_] : ∀ {Γ A₁ A₂ B} → Γ ⊢ A₁ ⊗ A₂ → Γ , A₁ , A₂ ⊢ B → Γ ⊢ B
   -- fixpoint
   μ_ : ∀ {Γ A} → Γ , A ⊢ A → Γ ⊢ A
-  -- Note that μ without termination check breaks soundness (and confuses Agda C-c C-a)
+  -- Note that μ without termination check breaks consitency (and confuses Agda C-c C-a)
 
 -- Helpers
 
