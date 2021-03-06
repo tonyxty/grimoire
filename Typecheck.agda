@@ -11,6 +11,11 @@ open import Relation.Binary.PropositionalEquality
 
 -- Untyped variable references and terms
 
+private
+  variable
+    Γ : Context
+    A : Type
+
 Var = ℕ
 
 data Term : Set where
@@ -24,9 +29,9 @@ data Term : Set where
   case_[⟪,⟫⇒_] : Term → Term → Term
   μ_⇒_ : Type → Term → Term
 
-eraseVar : ∀ {Γ A} → Γ ∋ A → Var
-eraseVar head = zero
-eraseVar (tail ∋A) = suc (eraseVar ∋A)
+eraseVar : Γ ∋ A → Var
+eraseVar zero = zero
+eraseVar (suc x) = suc (eraseVar x)
 
 data CheckVarResult (Γ : Context) (x : Var) : Set where
   good : ∀ {A} (x' : Γ ∋ A) → eraseVar x' ≡ x → CheckVarResult Γ x
@@ -34,14 +39,14 @@ data CheckVarResult (Γ : Context) (x : Var) : Set where
 
 checkVar : ∀ (Γ : Context) (x : Var) → CheckVarResult Γ x
 checkVar ∅ x = ungood λ ()
-checkVar (Γ , A) zero = good head refl
+checkVar (Γ , A) zero = good zero refl
 checkVar (Γ , A) (suc x) with checkVar Γ x
-...                    | good x' refl = good (tail x') refl
-...                    | ungood ≢ = ungood (λ{(tail x') e → ≢ x' (suc-injective e)})
+...                    | good x' refl = good (suc x') refl
+...                    | ungood ≢ = ungood (λ{(suc x') e → ≢ x' (suc-injective e)})
 
 -- Correct-by-type typechecking
 
-erase : ∀ {Γ A} → Γ ⊢ A → Term
+erase : Γ ⊢ A → Term
 erase (` x) = ` (eraseVar x)
 erase (ƛ A ⇒ M) = ƛ A ⇒ erase M
 erase (M₁ ∙ M₂) = erase M₁ ∙ erase M₂
@@ -57,7 +62,7 @@ data CheckGoodResult (Γ : Context) (M : Term) : Set where
 
 check' : ∀ (Γ : Context) (M : Term) → Maybe (CheckGoodResult Γ M)
 check' Γ (` x) with checkVar Γ x
-...               | good {A} x' refl = just ⟨ A , ` x' , refl ⟩
+...               | good x' refl = just ⟨ _ , ` x' , refl ⟩
 ...               | ungood _ = nothing
 check' Γ (ƛ A ⇒ M) = do
   ⟨ B , M , refl ⟩ ← check' (Γ , A) M
@@ -101,26 +106,26 @@ private
   `ungood : Term
   `ungood = (S S Z) ∙ Z
 
-  _ : ∀ {Γ} → check' Γ `ungood ≡ nothing
+  _ : check' Γ `ungood ≡ nothing
   _ = refl
 
   `plusungood : Term
   `plusungood = ƛ `ℕ ⇒ ƛ `ℕ ⇒ ` 0 ∙ ` 1
 
-  _ : ∀ {Γ} → check' Γ `plusungood ≡ nothing
+  _ : check' Γ `plusungood ≡ nothing
   _ = refl
 
   `doubleplusungood : Term
   `doubleplusungood = μ `ℕ ⇒ (` 0 ∙ ` 0)
 
-  _ : ∀ {Γ} → check' Γ `doubleplusungood ≡ nothing
+  _ : check' Γ `doubleplusungood ≡ nothing
   _ = refl
 
 -- Completeness
 
-completenessVar : ∀ {Γ A} (x : Γ ∋ A) → checkVar Γ (eraseVar x) ≡ good x refl
-completenessVar head = refl
-completenessVar (tail x) rewrite completenessVar x = refl
+completenessVar : ∀ (x : Γ ∋ A) → checkVar Γ (eraseVar x) ≡ good x refl
+completenessVar zero = refl
+completenessVar (suc x) rewrite completenessVar x = refl
 
 -- Note that the following essentially asserts that Type is an h-Set.
 unifySelf : ∀ (A : Type) → Type≟ A A ≡ yes refl
@@ -128,7 +133,7 @@ unifySelf `ℕ = refl
 unifySelf (A ↠ B) rewrite unifySelf A | unifySelf B = refl
 unifySelf (A ⊗ B) rewrite unifySelf A | unifySelf B = refl
 
-completeness : ∀ {Γ A} (M : Γ ⊢ A) → check' Γ (erase M) ≡ just ⟨ A , M , refl ⟩
+completeness : ∀ (M : Γ ⊢ A) → check' Γ (erase M) ≡ just ⟨ A , M , refl ⟩
 completeness (` x) rewrite completenessVar x = refl
 completeness (ƛ A ⇒ M) rewrite completeness M = refl
 completeness (_∙_ {A = A} M₁ M₂)
@@ -150,5 +155,5 @@ check Γ M with check' Γ M | inspect (check' Γ) M
 ...        | just ⟨ A , M' , refl ⟩ | _ = good M' refl
 ...        | nothing | [ ≡ ] = ungood λ{M' refl → helper ≡}
   where
-  helper : ∀ {Γ A} {M : Γ ⊢ A} → check' Γ (erase M) ≢ nothing
+  helper : ∀ {M : Γ ⊢ A} → check' Γ (erase M) ≢ nothing
   helper {M = M} rewrite completeness M = λ ()

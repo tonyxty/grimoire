@@ -9,8 +9,8 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 -- Types
 
-infixr 2 _↠_
-infixl 3 _⊗_
+infixr 5 _↠_
+infixl 6 _⊗_
 data Type : Set where
   `ℕ : Type
   _↠_ : Type → Type → Type
@@ -38,106 +38,146 @@ unify A B = decToMaybe (Type≟ A B)
 
 -- Contexts
 
-infixl 1 _,_
+infixl 4 _,_
 data Context : Set where
   ∅ : Context
   _,_ : Context → Type → Context
 
+private
+  variable
+    Γ Δ Θ : Context
+    A A' B A₁ A₂ : Type
+
+-- Terms (intrinsically typed)
+
 -- intrinsically scoped & typed de Brujin index.  this type is called "_[_]=_" in Data.Vec
-infix 0 _∋_
+infix 1 _∋_
 data _∋_ : Context → Type → Set where
-  head : ∀ {Γ A} → Γ , A ∋ A
-  tail : ∀ {Γ A B} → Γ ∋ A → Γ , B ∋ A
+  zero : Γ , A ∋ A
+  suc : Γ ∋ A → Γ , A' ∋ A
 
 length : Context → ℕ
 length ∅ = zero
 length (Γ , _) = suc (length Γ)
 
-at : (Γ : Context) → (i : ℕ) → (i<len : i < length Γ) → Type
-at (_ , A) zero i<len = A
-at (Γ , x) (suc i) (s≤s i<len) = at Γ i i<len
+at : ∀ (Γ : Context) (i : ℕ) (< : i < length Γ) → Type
+at (_ , A) zero _ = A
+at (Γ , _) (suc i) (s≤s <) = at Γ i <
 
 lookup : (Γ : Context) → (i : ℕ) → (i<len : i < length Γ) → Γ ∋ (at Γ i i<len)
-lookup (_ , _) zero _ = head
-lookup (Γ , _) (suc i) (s≤s i<len) = tail (lookup Γ i i<len)
+lookup (_ , _) zero _ = zero
+lookup (Γ , _) (suc i) (s≤s i<len) = suc (lookup Γ i i<len)
 
--- Terms (intrinsically typed)
-
-infix 0 _⊢_
-infix 5 `_
-infix 2 ƛ_⇒_
-infixl 3 _∙_
-infix 4 S_
-infix 2 μ_
+infix 1 _⊢_
+infix 8 `_
+infix 5 ƛ_⇒_
+infixl 6 _∙_
+infix 7 S_
+infix 5 μ_
 data _⊢_ : Context → Type → Set where
   -- variable reference
-  `_ : ∀ {Γ A} → Γ ∋ A → Γ ⊢ A
-  -- ↠
-  ƛ_⇒_ : ∀ {Γ B} (A : Type) → Γ , A ⊢ B → Γ ⊢ A ↠ B
-  _∙_ : ∀ {Γ A B} → Γ ⊢ A ↠ B → Γ ⊢ A → Γ ⊢ B
+  `_ : Γ ∋ A → Γ ⊢ A
+  -- A ↠ B
+  ƛ_⇒_ : ∀ (A : Type) → Γ , A ⊢ B → Γ ⊢ A ↠ B
+  _∙_ : Γ ⊢ A ↠ B → Γ ⊢ A → Γ ⊢ B
   -- `ℕ
-  Z : ∀ {Γ} → Γ ⊢ `ℕ
-  S_ : ∀ {Γ} → Γ ⊢ `ℕ → Γ ⊢ `ℕ
-  case_[Z⇒_|S⇒_] : ∀ {Γ A} → Γ ⊢ `ℕ → Γ ⊢ A → Γ , `ℕ ⊢ A → Γ ⊢ A
-  -- ⊗
-  ⟪_,_⟫ : ∀ {Γ A₁ A₂} → Γ ⊢ A₁ → Γ ⊢ A₂ → Γ ⊢ A₁ ⊗ A₂
-  case_[⟪,⟫⇒_] : ∀ {Γ A₁ A₂ B} → Γ ⊢ A₁ ⊗ A₂ → Γ , A₁ , A₂ ⊢ B → Γ ⊢ B
-  -- fixpoint
-  μ_ : ∀ {Γ A} → Γ , A ⊢ A → Γ ⊢ A
+  Z : Γ ⊢ `ℕ
+  S_ : Γ ⊢ `ℕ → Γ ⊢ `ℕ
+  case_[Z⇒_|S⇒_] : Γ ⊢ `ℕ → Γ ⊢ A → Γ , `ℕ ⊢ A → Γ ⊢ A
+  -- A₁ ⊗ A₂
+  ⟪_,_⟫ : Γ ⊢ A₁ → Γ ⊢ A₂ → Γ ⊢ A₁ ⊗ A₂
+  case_[⟪,⟫⇒_] : Γ ⊢ A₁ ⊗ A₂ → Γ , A₁ , A₂ ⊢ B → Γ ⊢ B
+  -- μ
+  μ_ : Γ , A ⊢ A → Γ ⊢ A
   -- Note that μ without termination check breaks consitency (and confuses Agda C-c C-a)
 
 -- Helpers
 
-# : ∀ {Γ} (i : ℕ) {i<len : True (i <? length Γ)} → Γ ⊢ at Γ i (toWitness i<len)
-# {Γ} i {i<len} = ` lookup Γ i (toWitness i<len)
+infix 8 #_
+#_ : ∀ (i : ℕ) {i<len : True (i <? length Γ)} → Γ ⊢ at Γ i (toWitness i<len)
+#_ {Γ} i {i<len} = ` lookup Γ i (toWitness i<len)
 
-⌜_⌝ : ∀ {Γ} → ℕ → Γ ⊢ `ℕ
+⌜_⌝ : ℕ → Γ ⊢ `ℕ
 ⌜ zero ⌝ = Z
 ⌜ suc n ⌝ = S ⌜ n ⌝
 
 -- Substitution
 
-Rename : Context → Context → Set
-Rename Γ Δ = ∀ {A : Type} → Δ ∋ A → Γ ∋ A
+module Rename where
+  -- Rename.  Since subtitution for a ƛ term requires extending the scope, and they can nest arbitararily deep, we need
+  -- a way to manage these data.  They should mostly be regarded as implementation details, hence the separate module.
+  data Rename (Γ : Context) : Context → Set where
+    ∅ : Rename Γ ∅
+    _,_ : Rename Γ Δ → Γ ∋ A → Rename Γ (Δ , A)
 
-ext : ∀ {Γ Δ A} → Rename Γ Δ → Rename (Γ , A) (Δ , A)
-ext ρ head = head
-ext ρ (tail x) = tail (ρ x)
+  weaken : Rename Γ Δ → Rename (Γ , A) Δ
+  weaken ∅ = ∅
+  weaken (ρ , x) = weaken ρ , suc x
 
--- note how this is contravariant
-rename : ∀ {Γ Δ A} → Rename Γ Δ → Δ ⊢ A → Γ ⊢ A
-rename ρ (` x) = ` ρ x
-rename ρ (ƛ A ⇒ M) = ƛ A ⇒ rename (ext ρ) M
-rename ρ (M₁ ∙ M₂) = rename ρ M₁ ∙ rename ρ M₂
-rename ρ Z = Z
-rename ρ (S M) = S rename ρ M
-rename ρ case M [Z⇒ N₁ |S⇒ N₂ ] = case rename ρ M [Z⇒ rename ρ N₁ |S⇒ rename (ext ρ) N₂ ]
-rename ρ ⟪ M₁ , M₂ ⟫ = ⟪ rename ρ M₁ , rename ρ M₂ ⟫
-rename ρ case M [⟪,⟫⇒ N ] = case rename ρ M [⟪,⟫⇒ rename (ext (ext ρ)) N ]
-rename ρ (μ M) = μ rename (ext ρ) M
+  idRename : Rename Γ Γ
+  idRename {Γ = ∅} = ∅
+  idRename {Γ = Γ , _} = weaken idRename , zero
 
-_♯ : ∀ {Γ A B} → Γ ⊢ A → Γ , B ⊢ A
-M ♯ = rename tail M
+  drop : Rename (Γ , A) Γ
+  drop = weaken idRename
 
-Subst : Context → Context → Set
-Subst Γ Δ = ∀ {A} → Δ ∋ A → Γ ⊢ A
+  ext : Rename Γ Δ → Rename (Γ , A) (Δ , A)
+  ext ρ = weaken ρ , zero
+
+  -- note how this is contravariant
+  renameVar : Rename Γ Δ → Δ ∋ A → Γ ∋ A
+  renameVar (_ , x) zero = x
+  renameVar (ρ , _) (suc x) = renameVar ρ x
+
+  rename : Rename Γ Δ → Δ ⊢ A → Γ ⊢ A
+  rename ρ (` x) = ` renameVar ρ x
+  rename ρ (ƛ A ⇒ M) = ƛ A ⇒ rename (ext ρ) M
+  rename ρ (M₁ ∙ M₂) = rename ρ M₁ ∙ rename ρ M₂
+  rename ρ Z = Z
+  rename ρ (S M) = S rename ρ M
+  rename ρ case M [Z⇒ N₁ |S⇒ N₂ ] = case rename ρ M [Z⇒ rename ρ N₁ |S⇒ rename (ext ρ) N₂ ]
+  rename ρ ⟪ M₁ , M₂ ⟫ = ⟪ rename ρ M₁ , rename ρ M₂ ⟫
+  rename ρ case M [⟪,⟫⇒ N ] = case rename ρ M [⟪,⟫⇒ rename (ext (ext ρ)) N ]
+  rename ρ (μ M) = μ rename (ext ρ) M
+
+data Subst (Γ : Context) : Context → Set where
+  ∅ : Subst Γ ∅
+  _,_ : Subst Γ Δ → Γ ⊢ A → Subst Γ (Δ , A)
+
+module _ where
+  open Rename
+  _♯ : Γ ⊢ A → Γ , A' ⊢ A
+  M ♯ = rename drop M
+
+  renameToSubst : Rename.Rename Γ Δ → Subst Γ Δ
+  renameToSubst ∅ = ∅
+  renameToSubst (ρ , x) = renameToSubst ρ , ` x
+
+  idSubst : Subst Γ Γ
+  idSubst = renameToSubst idRename
+
+weaken : Subst Γ Δ → Subst (Γ , A) Δ
+weaken ∅ = ∅
+weaken (σ , M) = weaken σ , M ♯
 
 infixl 10 _⋆_
-_⋆_ : ∀ {Γ Δ} (σ : Subst Γ Δ) (A : Type) → Subst (Γ , A) (Δ , A)
-(σ ⋆ _) head = ` head
-(σ ⋆ _) (tail x) = σ x ♯
+_⋆_ : ∀ (σ : Subst Γ Δ) (A : Type) → Subst (Γ , A) (Δ , A)
+σ ⋆ A = weaken σ , ` zero
 
 -- implicit argument version
 infix 9 _⋆
-_⋆ : ∀ {Γ Δ A} → Subst Γ Δ → Subst (Γ , A) (Δ , A)
+_⋆ : Subst Γ Δ → Subst (Γ , A) (Δ , A)
 σ ⋆ = σ ⋆ _
 
-extByTerm : ∀ {Γ A} → Γ ⊢ A → Subst Γ (Γ , A)
-extByTerm M head = M
-extByTerm M (tail x) = ` x
+termSubst : Γ ⊢ A → Subst Γ (Γ , A)
+termSubst M = idSubst , M
 
-subst : ∀ {Γ Δ A} → Subst Γ Δ → Δ ⊢ A → Γ ⊢ A
-subst σ (` x) = σ x
+substVar : Subst Γ Δ → Δ ∋ A → Γ ⊢ A
+substVar (_ , M) zero = M
+substVar (σ , _) (suc x) = substVar σ x
+
+subst : Subst Γ Δ → Δ ⊢ A → Γ ⊢ A
+subst σ (` x) = substVar σ x
 subst σ (ƛ A ⇒ M) = ƛ A ⇒ (subst (σ ⋆) M)
 subst σ (M₁ ∙ M₂) = subst σ M₁ ∙ subst σ M₂
 subst σ Z = Z
@@ -148,7 +188,7 @@ subst σ case M [⟪,⟫⇒ N ] = case subst σ M [⟪,⟫⇒ subst (σ ⋆ ⋆)
 subst σ (μ M) = μ subst (σ ⋆) M
 
 _[_] : ∀ {Γ A B} → Γ , A ⊢ B → Γ ⊢ A → Γ ⊢ B
-M [ N ] = subst (extByTerm N) M
+M [ N ] = subst (termSubst N) M
 
 -- Examples
 
@@ -162,10 +202,10 @@ M [ N ] = subst (extByTerm N) M
 `suc = ƛ `ℕ ⇒ S # 0
 
 `plus : ∀ {Γ} → Γ ⊢ `ℕ ↠ `ℕ ↠ `ℕ
-`plus = μ (ƛ `ℕ ⇒ ƛ `ℕ ⇒
-             case # 1
-             [Z⇒ # 0
-             |S⇒ S (# 3 ∙ # 0 ∙ # 1) ])
+`plus = μ ƛ `ℕ ⇒ ƛ `ℕ ⇒
+            case # 1
+            [Z⇒ # 0
+            |S⇒ S (# 3 ∙ # 0 ∙ # 1) ]
 
 `proj₁ : ∀ {Γ A B} → Γ ⊢ A ⊗ B ↠ A
 `proj₁ = ƛ _ ⇒ case # 0 [⟪,⟫⇒ # 1 ]

@@ -5,7 +5,7 @@ open import Terms
 open import Reduction
 open import Data.Nat
 open import Data.Maybe
-open import Data.Product renaming (_,_ to ⟨_,_⟩)
+open import Data.Product
 open import Relation.Binary.PropositionalEquality
 
 -- Note on the idea of bidirectional type inference: a term can be typed in two ways: synthesis and inheritance.
@@ -19,8 +19,6 @@ Var = ℕ
 data Term↓ : Set
 data Term↑ : Set
 
-infixr 2 ƛ_
-infixr 2 μ_
 infix 1 _↓_
 infix 1 _↑
 
@@ -53,25 +51,25 @@ private
 
 checkVar : ∀ (Γ : Context) (x : ℕ) → Maybe (∃[ A ] (Γ ∋ A))
 checkVar ∅ x = nothing
-checkVar (Γ , A) zero = just ⟨ A , head ⟩
+checkVar (Γ , A) zero = just (A , zero)
 checkVar (Γ , A) (suc x) = do
-  ⟨ A , ∋ ⟩ ← checkVar Γ x
-  just ⟨ A , tail ∋ ⟩
+  A , x ← checkVar Γ x
+  just (A , suc x)
 
 synthesize : ∀ (Γ : Context) → Term↓ → Maybe (∃[ A ] (Γ ⊢ A))
 inherit : ∀ (Γ : Context) → (A : Type) → Term↑ → Maybe (Γ ⊢ A)
 
 synthesize Γ (` x) = do
-  ⟨ A , ∋ ⟩ ← checkVar Γ x
-  just ⟨ A , ` ∋ ⟩
+  A , x ← checkVar Γ x
+  just (A , ` x)
 synthesize Γ (M₁ ∙ M₂) = do
-  ⟨ A ↠ B , M₁ ⟩ ← synthesize Γ M₁
-                   where _ → nothing
+  A ↠ B , M₁ ← synthesize Γ M₁
+               where _ → nothing
   M₂ ← inherit Γ A M₂
-  just ⟨ B , M₁ ∙ M₂ ⟩
+  just (B , M₁ ∙ M₂)
 synthesize Γ (M ↓ A) = do
   M ← inherit Γ A M
-  just ⟨ A , M ⟩
+  just (A , M)
 
 inherit Γ (A ↠ B) (ƛ M) = do
   M ← inherit (Γ , A) B M
@@ -94,15 +92,15 @@ inherit Γ (A₁ ⊗ A₂) ⟪ M₁ , M₂ ⟫ = do
   just ⟪ M₁ , M₂ ⟫
 inherit Γ _ ⟪ M₁ , M₂ ⟫ = nothing
 inherit Γ A case M [⟪,⟫⇒ N ] = do
-  ⟨ A₁ ⊗ A₂ , M ⟩ ← synthesize Γ M
-                    where _ → nothing
-  N ← inherit (Γ , A₁ , A₂) A N
+  A₁ ⊗ A₂ , M ← synthesize Γ M
+                where _ → nothing
+  N ← inherit ((Γ , A₁) , A₂) A N
   just case M [⟪,⟫⇒ N ]
 inherit Γ A (μ M) = do
   M ← inherit (Γ , A) A M
   just (μ M)
 inherit Γ A (M ↑) = do
-  ⟨ A' , M ⟩ ← synthesize Γ M
+  A' , M ← synthesize Γ M
   refl ← unify A A'
   just M
 

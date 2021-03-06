@@ -3,13 +3,14 @@ module MoreCat where
 
 open import CatSem
 open import Terms
-open import Categories.Object.Terminal
-open import Categories.Object.Product
+open import Categories.Object.Terminal ContextCategory
+open import Categories.Object.Product ContextCategory
+open import Categories.Morphism ContextCategory
 open import Data.Product renaming (_,_ to ⟨_,_⟩)
 open import Data.Sum
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; cong)
 
-∅-isTerminal : IsTerminal ContextCategory ∅
+∅-isTerminal : IsTerminal ∅
 ∅-isTerminal = record { ! = λ () ; !-unique = λ f → subst-≡ λ () }
 
 module _ {Γ Δ : Context} where
@@ -34,7 +35,7 @@ module _ {Γ Δ : Context} where
     ...         | inj₁ ⟨ x' , refl ⟩ = refl
     ...         | inj₂ ⟨ x' , refl ⟩ = refl
 
-  ++-Product : Product ContextCategory Γ Δ
+  ++-Product : Product Γ Δ
   ++-Product = record
                  { A×B = Γ ++ Δ
                  ; π₁ = λ x → ` liftˡ Δ x
@@ -44,3 +45,13 @@ module _ {Γ Δ : Context} where
                  ; project₂ = subst-≡ combine-liftʳ
                  ; unique = λ e₁ e₂ → subst-≡ λ x → sym (combine-proj (sym e₁) (sym e₂) x)
                  }
+
+module _ {A B : Type} where
+  ⊗≅, : (∅ , A , B) ≅ (∅ , A ⊗ B)
+  ⊗≅, = record
+          { from = λ{head → ⟪ # 1 , # 0 ⟫}
+          ; to = λ{head → case # 0 [⟪,⟫⇒ # 0 ]; (tail head) → case # 0 [⟪,⟫⇒ # 1 ]}
+          ; iso = record
+                    { isoˡ = subst-≡ λ{head → {!!}; (tail head) → {!!}}
+                    ; isoʳ = {!!} }
+          }

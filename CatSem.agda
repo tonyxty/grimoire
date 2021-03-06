@@ -6,7 +6,7 @@ open import Categories.Category.Core
 open import Level
 open import Function using (_∘_)
 open import Data.Sum
-open import Data.Product renaming (_,_ to ⟨_,_⟩)
+open import Data.Product
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; sym; cong)
 open Eq.≡-Reasoning
@@ -128,17 +128,17 @@ liftʳ Γ head = head
 liftʳ Γ (tail x) = tail (liftʳ Γ x)
 
 ++-∋ : ∀ {A} (Γ E : Context) (x : Γ ++ E ∋ A) → Σ[ x' ∈ (Γ ∋ A) ] (x ≡ liftˡ E x') ⊎ Σ[ x' ∈ (E ∋ A) ] (x ≡ liftʳ Γ x')
-++-∋ Γ ∅ x = inj₁ ⟨ x , refl ⟩
-++-∋ Γ (_ , _) head = inj₂ ⟨ head , refl ⟩
+++-∋ Γ ∅ x = inj₁ (x , refl)
+++-∋ Γ (_ , _) head = inj₂ (head , refl)
 ++-∋ Γ (E , _) (tail x) with ++-∋ Γ E x
-...                        | inj₁ ⟨ x' , refl ⟩ = inj₁ ⟨ x' , refl ⟩
-...                        | inj₂ ⟨ x' , refl ⟩ = inj₂ ⟨ tail x' , refl ⟩
+...                        | inj₁ (x' , refl) = inj₁ (x' , refl)
+...                        | inj₂ (x' , refl) = inj₂ (tail x' , refl)
 
-++-∋-liftˡ : ∀ {A Γ E} (x : Γ ∋ A) → ++-∋ Γ E (liftˡ E x) ≡ inj₁ ⟨ x , refl ⟩
+++-∋-liftˡ : ∀ {A Γ E} (x : Γ ∋ A) → ++-∋ Γ E (liftˡ E x) ≡ inj₁ (x , refl)
 ++-∋-liftˡ {E = ∅} x = refl
 ++-∋-liftˡ {E = E , _} x rewrite ++-∋-liftˡ {E = E} x = refl
 
-++-∋-liftʳ : ∀ {A Γ E} (x : E ∋ A) → ++-∋ Γ E (liftʳ Γ x) ≡ inj₂ ⟨ x , refl ⟩
+++-∋-liftʳ : ∀ {A Γ E} (x : E ∋ A) → ++-∋ Γ E (liftʳ Γ x) ≡ inj₂ (x , refl)
 ++-∋-liftʳ head = refl
 ++-∋-liftʳ {Γ = Γ} (tail x) rewrite ++-∋-liftʳ {Γ = Γ} x = refl
 
@@ -157,7 +157,7 @@ _⋆⋆ : ∀ {Γ Δ E} → Subst Γ Δ → Subst (Γ ++ E) (Δ ++ E)
 ext-subst-var : ∀ {Γ Δ E B} (ρ : Subst Γ Δ) (x : Δ ++ E ∋ B) (A : Type) →
   rename (exts tail E) ((ρ ⋆⋆ E) x) ≡ (ρ ⋆ A ⋆⋆ E) (exts tail E x)
 ext-subst-var {Γ = Γ} {Δ = Δ} {E = E} ρ x A with ++-∋ Δ E x
-... | inj₁ ⟨ x' , refl ⟩ = fromˡ ρ x' A
+... | inj₁ (x' , refl) = fromˡ ρ x' A
   where
   subst-liftˡ : ∀ {Γ Δ A} (ρ : Subst Γ Δ) (E : Context) (x : Δ ∋ A) → (ρ ⋆⋆ E) (liftˡ E x) ≡ rename (liftˡ E) (ρ x)
   subst-liftˡ ρ ∅ x = sym (rename-id (ρ x))
@@ -178,7 +178,7 @@ ext-subst-var {Γ = Γ} {Δ = Δ} {E = E} ρ x A with ++-∋ Δ E x
                                     | sym (rename-∘ (liftˡ E) (tail {B = A}) (ρ x))
     = cong (λ (σ : Rename ((Γ , A) ++ E) Γ) → rename σ (ρ x)) (rename-≡ (exts-liftˡ tail E))
 
-... | inj₂ ⟨ x' , refl ⟩ = fromʳ ρ x' A
+... | inj₂ (x' , refl) = fromʳ ρ x' A
   where
   ⋆⋆-liftʳ : ∀ {Γ Δ A} (E : Context) (ρ : Subst Γ Δ) (x : E ∋ A) → (ρ ⋆⋆ E) (liftʳ Δ x) ≡ ` liftʳ Γ x
   ⋆⋆-liftʳ (E , A') ρ head = refl
