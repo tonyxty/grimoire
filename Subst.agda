@@ -1,120 +1,80 @@
 {-# OPTIONS --without-K #-}
-module CatSem where
+module Subst where
 
-open import Terms
+open import Terms hiding (module Rename)
 open import Categories.Category.Core
-open import Level
+open import Level using (0ℓ)
 open import Function using (_∘_)
 open import Data.Sum
 open import Data.Product
 import Relation.Binary.PropositionalEquality as Eq
-open Eq using (_≡_; refl; sym; cong)
+open Eq using (_≡_; refl; sym; trans; cong; cong₂)
 open Eq.≡-Reasoning
 
-module _ {A : Set} {B : A → Set} where
-  private F = ∀ {x} → B x
-  postulate extensionality' : {f g : F} → (∀ (x : A) → f {x} ≡ g {x}) → _≡_ {A = F} f g
+private
+  variable
+    Γ Δ Θ : Context
+    A A' : Type
 
-  extensionality : {f g : ∀ (x : A) → B x} → (∀ (x : A) → f x ≡ g x) → f ≡ g
-  extensionality {f = f} {g = g} p = lemma (g _) (extensionality' p)
-    where -- hacking the η-law in Agda tycker
-    lemma : (g′ : F) → (λ {x} → f x) ≡ g′ → f ≡ (λ x → g′ {x})
-    lemma _ p rewrite sym p = refl
+module Rename where
+  open Terms.Rename
+  renameVar-weaken : ∀ (ρ : Rename Γ Δ) (x : Δ ∋ A) → renameVar (Terms.Rename.weaken {A = A'} ρ) x ≡ suc (renameVar ρ x)
+  renameVar-weaken (_ , _) zero = refl
+  renameVar-weaken (ρ , _) (suc x) = renameVar-weaken ρ x
 
--- I think Agda's implicit insertion mechanism is too eager.
--- If we just write ρ ≡ σ here, the implicit type argument will be inserted, which is arguably counter-intuitive.
-rename-≡ : ∀ {Γ Δ} {ρ σ : Rename Γ Δ} → (∀ {A} (x : Δ ∋ A) → ρ x ≡ σ x) → _≡_ {A = Rename Γ Δ} ρ σ
-rename-≡ pt≡ = extensionality' (λ A' → extensionality (pt≡ {A'}))
+  renameVar-id : ∀ (x : Γ ∋ A) → renameVar idRename x ≡ x
+  renameVar-id zero = refl
+  renameVar-id (suc x) = trans (renameVar-weaken idRename x) (cong suc (renameVar-id x))
 
-idRename : ∀ {Γ} → Rename Γ Γ
-idRename x = x
+  rename-id : ∀ (M : Γ ⊢ A) → rename idRename M ≡ M
+  rename-id (` x) rewrite renameVar-id x = refl
+  rename-id (ƛ A ⇒ M) rewrite rename-id M = refl
+  rename-id (M₁ ∙ M₂) rewrite rename-id M₁ | rename-id M₂ = refl
+  rename-id Z = refl
+  rename-id (S M) rewrite rename-id M = refl
+  rename-id case M [Z⇒ M₁ |S⇒ M₂ ] rewrite rename-id M | rename-id M₁ | rename-id M₂ = refl
+  rename-id ⟪ M₁ , M₂ ⟫ rewrite rename-id M₁ | rename-id M₂ = refl
+  rename-id (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M') rewrite rename-id M | rename-id M' = refl
+  rename-id (μ M) rewrite rename-id M = refl
 
-ext-idRename : ∀ (Γ : Context) (A : Type) → (λ {A'} (x : Γ , A ∋ A') → ext idRename x) ≡ (λ {A'} x → idRename x)
-ext-idRename Γ A = rename-≡ λ{head → refl; (tail x) → refl}
+substVar-weaken : ∀ (σ : Subst Γ Δ) (x : Δ ∋ A) → substVar (weaken {A = A'} σ) x ≡ substVar σ x ♯
+substVar-weaken (_ , _) zero = refl
+substVar-weaken (σ , _) (suc x) = substVar-weaken σ x
 
-rename-id : ∀ {Γ A} (M : Γ ⊢ A) → rename idRename M ≡ M
-rename-id (` x) = refl
-rename-id {Γ = Γ} (ƛ A ⇒ M) rewrite ext-idRename Γ A
-                                    | rename-id M = refl
-rename-id (M₁ ∙ M₂) rewrite rename-id M₁
-                          | rename-id M₂ = refl
-rename-id Z = refl
-rename-id (S M) rewrite rename-id M = refl
-rename-id {Γ = Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite rename-id M
-                                               | rename-id M₁
-                                               | ext-idRename Γ `ℕ
-                                               | rename-id M₂ = refl
-rename-id ⟪ M₁ , M₂ ⟫ rewrite rename-id M₁
-                            | rename-id M₂ = refl
-rename-id {Γ = Γ} (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M') rewrite rename-id M
-                                                                | ext-idRename Γ A₁
-                                                                | ext-idRename (Γ , A₁) A₂
-                                                                | rename-id M' = refl
-rename-id {Γ} {A} (μ M) rewrite ext-idRename Γ A
-                              | rename-id M = refl
+♯-suc : ∀ (x : Γ ∋ A) → (` x) ♯ A' ≡ ` suc x
+♯-suc x = cong `_ (trans (renameVar-weaken Terms.Rename.idRename x) (cong suc (renameVar-id x))) where open Rename
 
-ext-∘ : ∀ {Γ Δ Θ} (ρ : Rename Γ Δ) (σ : Rename Δ Θ) (A : Type) →
-  (λ {B} (x : Θ , A ∋ B) → ext (ρ ∘ σ) x) ≡ (λ {B} x → ext ρ (ext σ x))
-ext-∘ ρ σ A = rename-≡ (λ{head → refl; (tail x) → refl})
+substVar-id : ∀ (x : Γ ∋ A) → substVar idSubst x ≡ ` x
+substVar-id zero = refl
+substVar-id (suc x) = trans (substVar-weaken idSubst x) (trans (cong _♯ (substVar-id x)) (♯-suc x))
 
-rename-∘ : ∀ {Γ Δ Θ A} (ρ : Rename Γ Δ) (σ : Rename Δ Θ) (M : Θ ⊢ A) → rename (ρ ∘ σ) M ≡ rename ρ (rename σ M)
-rename-∘ ρ σ (` x) = refl
-rename-∘ ρ σ (ƛ A ⇒ M) rewrite ext-∘ ρ σ A
-                             | rename-∘ (ext ρ) (ext σ) M = refl
-rename-∘ ρ σ (M₁ ∙ M₂) rewrite rename-∘ ρ σ M₁
-                             | rename-∘ ρ σ M₂ = refl
-rename-∘ ρ σ Z = refl
-rename-∘ ρ σ (S M) rewrite rename-∘ ρ σ M = refl
-rename-∘ ρ σ case M [Z⇒ M₁ |S⇒ M₂ ] rewrite rename-∘ ρ σ M
-                                          | rename-∘ ρ σ M₁
-                                          | ext-∘ ρ σ `ℕ
-                                          | rename-∘ (ext ρ) (ext σ) M₂ = refl
-rename-∘ ρ σ ⟪ M₁ , M₂ ⟫ rewrite rename-∘ ρ σ M₁
-                               | rename-∘ ρ σ M₂ = refl
-rename-∘ ρ σ (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M') rewrite rename-∘ ρ σ M
-                                                           | ext-∘ ρ σ A₁
-                                                           | ext-∘ (ext {A = A₁} ρ) (ext σ) A₂
-                                                           | rename-∘ (ext (ext ρ)) (ext (ext σ)) M' = refl
-rename-∘ {A = A} ρ σ (μ M) rewrite ext-∘ ρ σ A
-                                 | rename-∘ (ext ρ) (ext σ) M = refl
-
-infix 4 _≡ₛ_
-_≡ₛ_ : ∀ {Γ Δ} → Subst Γ Δ → Subst Γ Δ → Set
-ρ ≡ₛ σ = _≡_ {A = Subst _ _} ρ σ
-
-subst-≡ : ∀ {Γ Δ} {ρ σ : Subst Γ Δ} → (∀ {A} (x : Δ ∋ A) → ρ x ≡ σ x) → ρ ≡ₛ σ
-subst-≡ pt≡ = extensionality' (λ A → extensionality (pt≡ {A}))
-
-idSubst : ∀ {Γ} → Subst Γ Γ
-idSubst x = ` x
-
-idSubst⋆ : ∀ (Γ : Context) (A : Type) → idSubst {Γ} ⋆ A ≡ₛ idSubst
-idSubst⋆ Γ A = subst-≡ λ{head → refl; (tail x) → refl}
-
-subst-id : ∀ {Γ} {A : Type} (M : Γ ⊢ A) → subst idSubst M ≡ M
-subst-id (` x) = refl
-subst-id {Γ = Γ} (ƛ A ⇒ M) rewrite idSubst⋆ Γ A
-                                 | subst-id M = refl
-subst-id (M₁ ∙ M₂) rewrite subst-id M₁
-                         | subst-id M₂ = refl
+subst-id : ∀ (M : Γ ⊢ A) → subst idSubst M ≡ M
+subst-id (` x) = substVar-id x
+subst-id (ƛ A ⇒ M) rewrite subst-id M = refl
+subst-id (M₁ ∙ M₂) rewrite subst-id M₁ | subst-id M₂ = refl
 subst-id Z = refl
 subst-id (S M) rewrite subst-id M = refl
-subst-id {Γ = Γ} case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-id M
-                                              | subst-id M₁
-                                              | idSubst⋆ Γ `ℕ
-                                              | subst-id M₂ = refl
-subst-id ⟪ M₁ , M₂ ⟫ rewrite subst-id M₁
-                           | subst-id M₂ = refl
-subst-id {Γ = Γ} (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M') rewrite subst-id M
-                                                                 | idSubst⋆ Γ A₁
-                                                                 | idSubst⋆ (Γ , A₁) A₂
-                                                                 | subst-id M' = refl
-subst-id {Γ} {A} (μ M) rewrite idSubst⋆ Γ A | subst-id M = refl
+subst-id case M [Z⇒ M₁ |S⇒ M₂ ] rewrite subst-id M | subst-id M₁ | subst-id M₂ = refl
+subst-id ⟪ M₁ , M₂ ⟫ rewrite subst-id M₁ | subst-id M₂ = refl
+subst-id (case_[⟪,⟫⇒_] {A₁ = A₁} {A₂ = A₂} M M') rewrite subst-id M | subst-id M' = refl
+subst-id (μ M) rewrite subst-id M = refl
+
+-- substitutions are determined by their action on variables
+-- from the categorical point of view, this means the syntactic category is a concrete category
+subst-≡ : ∀ (ρ σ : Subst Γ Δ) → (∀ {A} (x : Δ ∋ A) → substVar ρ x ≡ substVar σ x) → ρ ≡ σ
+subst-≡ ∅ ∅ _ = refl
+subst-≡ (ρ , M) (σ , N) e = cong₂ _,_ (subst-≡ ρ σ (e ∘ suc)) (e zero)
 
 infixr 9 _∘ₛ_
-_∘ₛ_ : ∀ {Γ Δ Θ} → Subst Δ Θ → Subst Γ Δ → Subst Γ Θ
-(σ ∘ₛ ρ) x = subst ρ (σ x)
+_∘ₛ_ : Subst Δ Θ → Subst Γ Δ → Subst Γ Θ
+∅ ∘ₛ ρ = ∅
+(σ , M) ∘ₛ ρ = σ ∘ₛ ρ , subst ρ M
 
+∘ₛ-identityʳ : ∀ {σ : Subst Γ Δ} → σ ∘ₛ idSubst ≡ σ
+∘ₛ-identityʳ {σ = ∅} = refl
+∘ₛ-identityʳ {σ = σ , M} = cong₂ _,_ ∘ₛ-identityʳ (subst-id M)
+
+{-
 _++_ : Context → Context → Context
 Γ ++ ∅ = Γ
 Γ ++ (E , A) = Γ ++ E , A
@@ -253,19 +213,20 @@ subst-∘ₛ {A = A} ρ σ (μ M) rewrite ⋆-distr-∘ₛ ρ σ A
 
 ∘ₛ-assoc : ∀ {Γ Δ Θ Ξ} (ρ : Subst Γ Δ) (σ : Subst Δ Θ) (τ : Subst Θ Ξ) → (τ ∘ₛ σ) ∘ₛ ρ ≡ₛ τ ∘ₛ (σ ∘ₛ ρ)
 ∘ₛ-assoc ρ σ τ = subst-≡ (λ x → subst-∘ₛ ρ σ (τ x))
+-}
 
-open Category renaming (_⇒_ to _C⇒_; _∘_ to _∘c_)
+open Category
 
 instance ContextCategory : Category 0ℓ 0ℓ 0ℓ
 ContextCategory .Obj = Context
-ContextCategory ._C⇒_ = Subst
+ContextCategory .Category._⇒_ = Subst
 ContextCategory ._≈_ = _≡_
 ContextCategory .id = idSubst
-ContextCategory ._∘c_ = _∘ₛ_
-ContextCategory .assoc {h = h} = ∘ₛ-assoc _ _ h
-ContextCategory .sym-assoc {h = h} = sym (∘ₛ-assoc _ _ h)
-ContextCategory .identityˡ = refl
+ContextCategory .Category._∘_ = _∘ₛ_
+ContextCategory .assoc {h = h} = {!!} -- ∘ₛ-assoc _ _ h
+ContextCategory .sym-assoc {h = h} = {!!} -- sym (∘ₛ-assoc _ _ h)
+ContextCategory .identityˡ = {!!}
 ContextCategory .identityʳ = ∘ₛ-identityʳ
-ContextCategory .identity² = refl
+ContextCategory .identity² = {!!}
 ContextCategory .equiv = Eq.isEquivalence
 ContextCategory .∘-resp-≈ refl refl = refl

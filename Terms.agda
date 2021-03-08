@@ -45,7 +45,7 @@ data Context : Set where
 
 private
   variable
-    Γ Δ Θ : Context
+    Γ Δ : Context
     A A' B A₁ A₂ : Type
 
 -- Terms (intrinsically typed)
@@ -114,15 +114,15 @@ module Rename where
   weaken ∅ = ∅
   weaken (ρ , x) = weaken ρ , suc x
 
+  ext : Rename Γ Δ → Rename (Γ , A) (Δ , A)
+  ext ρ = weaken ρ , zero
+
   idRename : Rename Γ Γ
   idRename {Γ = ∅} = ∅
-  idRename {Γ = Γ , _} = weaken idRename , zero
+  idRename {Γ = _ , _} = ext idRename
 
   drop : Rename (Γ , A) Γ
   drop = weaken idRename
-
-  ext : Rename Γ Δ → Rename (Γ , A) (Δ , A)
-  ext ρ = weaken ρ , zero
 
   -- note how this is contravariant
   renameVar : Rename Γ Δ → Δ ∋ A → Γ ∋ A
@@ -144,17 +144,11 @@ data Subst (Γ : Context) : Context → Set where
   ∅ : Subst Γ ∅
   _,_ : Subst Γ Δ → Γ ⊢ A → Subst Γ (Δ , A)
 
-module _ where
-  open Rename
-  _♯ : Γ ⊢ A → Γ , A' ⊢ A
-  M ♯ = rename drop M
+_♯_ : Γ ⊢ A → ∀ (A' : Type) → Γ , A' ⊢ A
+M ♯ _ = rename drop M where open Rename
 
-  renameToSubst : Rename.Rename Γ Δ → Subst Γ Δ
-  renameToSubst ∅ = ∅
-  renameToSubst (ρ , x) = renameToSubst ρ , ` x
-
-  idSubst : Subst Γ Γ
-  idSubst = renameToSubst idRename
+_♯ : Γ ⊢ A → Γ , A' ⊢ A
+M ♯ = M ♯ _
 
 weaken : Subst Γ Δ → Subst (Γ , A) Δ
 weaken ∅ = ∅
@@ -168,6 +162,10 @@ _⋆_ : ∀ (σ : Subst Γ Δ) (A : Type) → Subst (Γ , A) (Δ , A)
 infix 9 _⋆
 _⋆ : Subst Γ Δ → Subst (Γ , A) (Δ , A)
 σ ⋆ = σ ⋆ _
+
+idSubst : Subst Γ Γ
+idSubst {Γ = ∅} = ∅
+idSubst {Γ = Γ , A} = idSubst ⋆
 
 termSubst : Γ ⊢ A → Subst Γ (Γ , A)
 termSubst M = idSubst , M
