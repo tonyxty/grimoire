@@ -69,11 +69,11 @@ lookup (_ , _) zero _ = zero
 lookup (Γ , _) (suc i) (s≤s i<len) = suc (lookup Γ i i<len)
 
 infix 1 _⊢_
-infix 8 `_
-infix 5 ƛ_⇒_
-infixl 6 _∙_
-infix 7 S_
-infix 5 μ_
+infix 9 `_
+infix 6 ƛ_⇒_
+infixl 7 _∙_
+infix 8 S_
+infix 6 μ_
 data _⊢_ : Context → Type → Set where
   -- variable reference
   `_ : Γ ∋ A → Γ ⊢ A
@@ -89,11 +89,11 @@ data _⊢_ : Context → Type → Set where
   case_[⟪,⟫⇒_] : Γ ⊢ A₁ ⊗ A₂ → Γ , A₁ , A₂ ⊢ B → Γ ⊢ B
   -- μ
   μ_ : Γ , A ⊢ A → Γ ⊢ A
-  -- Note that μ without termination check breaks consitency (and confuses Agda C-c C-a)
+  -- note that μ without termination check breaks consitency (and confuses Agda C-c C-a)
 
 -- Helpers
 
-infix 8 #_
+infix 9 #_
 #_ : ∀ (i : ℕ) {i<len : True (i <? length Γ)} → Γ ⊢ at Γ i (toWitness i<len)
 #_ {Γ} i {i<len} = ` lookup Γ i (toWitness i<len)
 
@@ -104,8 +104,8 @@ infix 8 #_
 -- Substitution
 
 module Rename where
-  -- Rename.  Since subtitution for a ƛ term requires extending the scope, and they can nest arbitararily deep, we need
-  -- a way to manage these data.  They should mostly be regarded as implementation details, hence the separate module.
+  -- Rename.  since subtitution for a ƛ term requires extending the scope, and they can nest arbitararily deep, we need
+  -- a way to manage these data.  they should mostly be regarded as implementation details, hence the separate module.
   data Rename (Γ : Context) : Context → Set where
     ∅ : Rename Γ ∅
     _,_ : Rename Γ Δ → Γ ∋ A → Rename Γ (Δ , A)
@@ -154,12 +154,12 @@ weaken : Subst Γ Δ → Subst (Γ , A) Δ
 weaken ∅ = ∅
 weaken (σ , M) = weaken σ , M ♯
 
-infixl 10 _⋆_
+infixl 11 _⋆_
 _⋆_ : ∀ (σ : Subst Γ Δ) (A : Type) → Subst (Γ , A) (Δ , A)
 σ ⋆ A = weaken σ , ` zero
 
 -- implicit argument version
-infix 9 _⋆
+infix 10 _⋆
 _⋆ : Subst Γ Δ → Subst (Γ , A) (Δ , A)
 σ ⋆ = σ ⋆ _
 
@@ -167,8 +167,8 @@ idSubst : Subst Γ Γ
 idSubst {Γ = ∅} = ∅
 idSubst {Γ = Γ , A} = idSubst ⋆
 
-termSubst : Γ ⊢ A → Subst Γ (Γ , A)
-termSubst M = idSubst , M
+intro : Γ ⊢ A → Subst Γ (Γ , A)
+intro M = idSubst , M
 
 substVar : Subst Γ Δ → Δ ∋ A → Γ ⊢ A
 substVar (_ , M) zero = M
@@ -186,7 +186,7 @@ subst σ case M [⟪,⟫⇒ N ] = case subst σ M [⟪,⟫⇒ subst (σ ⋆ ⋆)
 subst σ (μ M) = μ subst (σ ⋆) M
 
 _[_] : ∀ {Γ A B} → Γ , A ⊢ B → Γ ⊢ A → Γ ⊢ B
-M [ N ] = subst (termSubst N) M
+M [ N ] = subst (intro N) M
 
 -- Examples
 

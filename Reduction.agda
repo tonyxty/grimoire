@@ -21,7 +21,7 @@ data Value : ∀ {Γ A} → Γ ⊢ A → Set where
   V-S : ∀ {V : Γ ⊢ `ℕ} → Value V → Value (S V)
   V-⟪,⟫ : ∀ {V₁ : Γ ⊢ A₁} {V₂ : Γ ⊢ A₂} → Value V₁ → Value V₂ → Value ⟪ V₁ , V₂ ⟫
 
-infix 0 _—→_
+infix 5 _—→_
 data _—→_ : ∀ {Γ A} → Γ ⊢ A → Γ ⊢ A → Set where
   ξ-∙₁ : ∀ {M M' : Γ ⊢ A ↠ B} {N : Γ ⊢ A} → M —→ M' → M ∙ N —→ M' ∙ N
   ξ-∙₂ : ∀ {V : Γ ⊢ A ↠ B} {N N' : Γ ⊢ A} → Value V → N —→ N' → V ∙ N —→ V ∙ N'
@@ -38,11 +38,11 @@ data _—→_ : ∀ {Γ A} → Γ ⊢ A → Γ ⊢ A → Set where
     case ⟪ V₁ , V₂ ⟫ [⟪,⟫⇒ N ] —→ N [ V₂ ♯ ] [ V₁ ]
   β-μ : ∀ {M : Γ , A ⊢ A} → μ M —→ M [ μ M ]
 
-infixr 0 _—↠_
-infix 1 _∎
-infixr 0 _—→⟨_⟩_
-infixr 0 _—≡→⟨_⟩_
-infixr 0 _—↠⟨_⟩_
+infixr 5 _—↠_
+infix 6 _∎
+infixr 5 _—→⟨_⟩_
+infixr 5 _—≡→⟨_⟩_
+infixr 5 _—↠⟨_⟩_
 
 data _—↠_ : Γ ⊢ A → Γ ⊢ A → Set where
   _∎ : ∀ (M : Γ ⊢ A) → M —↠ M
